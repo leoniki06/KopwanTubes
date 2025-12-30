@@ -8,13 +8,6 @@ use Illuminate\Support\Facades\Auth;
 
 class PremiumRecipeController extends Controller
 {
-    // Middleware untuk cek premium
-    public function __construct()
-    {
-        $this->middleware('auth');
-        $this->middleware('premium')->except(['index', 'showPreview']);
-    }
-
     // Tampilkan semua resep eksklusif (hanya untuk premium)
     public function index(Request $request)
     {

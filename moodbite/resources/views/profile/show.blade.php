@@ -3,147 +3,568 @@
 @section('title', 'Profil Saya - MoodBite')
 
 @section('content')
-<div class="row">
-    <div class="col-lg-4 mb-4">
-        <!-- Profile Card -->
-        <div class="card">
-            <div class="card-body text-center">
-                <!-- Avatar -->
-                <div class="mb-3">
-                    @if(Auth::user()->avatar)
-                        <img src="{{ asset('storage/avatars/' . Auth::user()->avatar) }}" 
-                             class="rounded-circle" width="150" height="150" alt="Avatar">
-                    @else
-                        <div class="rounded-circle d-inline-flex align-items-center justify-content-center" 
-                             style="width: 150px; height: 150px; background: linear-gradient(135deg, #FF6B8B, #FFD166);">
-                            <span class="text-white display-4">{{ substr(Auth::user()->name, 0, 1) }}</span>
-                        </div>
-                    @endif
-                </div>
-                
-                <h4 class="mb-1">{{ Auth::user()->name }}</h4>
-                <p class="text-muted mb-2">{{ Auth::user()->email }}</p>
+@php
+    $user = Auth::user();
 
-                {{-- STATUS PREMIUM --}}
-                @if(Auth::user()->isPremium())
-                    <span class="badge mb-2"
-                          style="background: linear-gradient(135deg, #FFD166, #FF6B8B); color: #333;">
-                        <i class="fas fa-crown me-1"></i> Premium Member
-                    </span>
-                    <p class="small text-muted">
-                        Aktif sampai {{ Auth::user()->premium_until->format('d F Y') }}
-                    </p>
-                @else
-                    <span class="badge bg-secondary mb-3">
-                        Free Member
-                    </span>
-                @endif
+    $preferences = $user->food_preferences ?? [];
+    if (is_string($preferences)) {
+        $decoded = json_decode($preferences, true);
+        $preferences = is_array($decoded) ? $decoded : [];
+    }
+    if (!is_array($preferences)) $preferences = [];
 
-                <div class="d-grid gap-2 mt-3">
-                    <a href="{{ route('profile.edit') }}" class="btn btn-primary">
-                        <i class="fas fa-edit me-2"></i>Edit Profil
-                    </a>
-                </div>
+    $isPremium = $user->isPremium();
+    $premiumUntil = optional($user->premium_until)->format('d F Y');
+@endphp
+
+<div class="container py-4">
+    <!-- HEADER -->
+    <div class="profile-header mb-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h3 class="fw-bold mb-1">Profil Kamu</h3>
+                <p class="text-muted mb-0">Kelola akun & preferensi makananmu 🍓</p>
             </div>
-        </div>
-        
-        <!-- Food Preferences Card -->
-        <div class="card mt-4">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <i class="fas fa-heart me-2" style="color: #FF6B8B;"></i>
-                    Preferensi Makanan
-                </h5>
-                
-                <form action="{{ route('profile.preferences') }}" method="POST">
-                    @csrf
-                    
-                    @php
-                        $preferences = Auth::user()->food_preferences ?? [];
-                    @endphp
-                    
-                    @foreach([
-                        'vegetarian' => 'Vegetarian',
-                        'vegan' => 'Vegan',
-                        'halal' => 'Halal',
-                        'spicy' => 'Suka Pedas',
-                        'sweet' => 'Suka Manis',
-                        'low_calorie' => 'Rendah Kalori'
-                    ] as $key => $label)
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox"
-                                   name="preferences[]"
-                                   value="{{ $key }}"
-                                   id="pref_{{ $key }}"
-                                   {{ in_array($key, $preferences) ? 'checked' : '' }}>
-                            <label class="form-check-label" for="pref_{{ $key }}">
-                                {{ $label }}
-                            </label>
-                        </div>
-                    @endforeach
-                    
-                    <button type="submit" class="btn btn-sm btn-outline-primary w-100 mt-3">
-                        <i class="fas fa-save me-1"></i>Simpan Preferensi
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-8">
-        <!-- Profile Details Card -->
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title mb-4">
-                    <i class="fas fa-user-circle me-2" style="color: #FF6B8B;"></i>
-                    Informasi Profil
-                </h5>
-                
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <h6 class="text-muted mb-1">Nama Lengkap</h6>
-                        <p class="mb-0">{{ Auth::user()->name }}</p>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <h6 class="text-muted mb-1">Email</h6>
-                        <p class="mb-0">{{ Auth::user()->email }}</p>
-                    </div>
-                    
-                    @if(Auth::user()->phone)
-                    <div class="col-md-6 mb-3">
-                        <h6 class="text-muted mb-1">Telepon</h6>
-                        <p class="mb-0">{{ Auth::user()->formatted_phone }}</p>
-                    </div>
-                    @endif
-                    
-                    @if(Auth::user()->birthdate)
-                    <div class="col-md-6 mb-3">
-                        <h6 class="text-muted mb-1">Tanggal Lahir</h6>
-                        <p class="mb-0">
-                            {{ Auth::user()->birthdate->format('d F Y') }}
-                        </p>
-                    </div>
-                    @endif
-                    
-                    <div class="col-md-6 mb-3">
-                        <h6 class="text-muted mb-1">Member Sejak</h6>
-                        <p class="mb-0">{{ Auth::user()->created_at->format('d F Y') }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Recent Recommendations -->
-        <div class="card mt-4">
-            <div class="card-body text-center py-4">
-                <i class="fas fa-utensils fa-3x mb-3" style="color: #FF6B8B; opacity: 0.5;"></i>
-                <p class="text-muted">Belum ada riwayat rekomendasi</p>
-                <a href="{{ route('recommendations') }}" class="btn btn-primary">
-                    <i class="fas fa-search me-2"></i>Cari Rekomendasi
+
+            <div class="d-flex gap-2">
+                <a href="{{ route('recommendations') }}" class="btn btn-gradient">
+                    <i class="fas fa-search me-2"></i>Cari Makanan
+                </a>
+                <a href="{{ route('profile.edit') }}" class="btn btn-outline-pink">
+                    <i class="fas fa-pen me-2"></i>Edit Profil
                 </a>
             </div>
         </div>
     </div>
+
+    <div class="row g-4">
+        <!-- LEFT -->
+        <div class="col-lg-4">
+            <!-- PROFILE CARD -->
+            <div class="card card-soft border-0 profile-card">
+                <div class="card-body p-4 text-center">
+                    <!-- Avatar -->
+                    <div class="avatar-wrap mx-auto mb-3">
+                        @if($user->avatar)
+                            <img
+                                src="{{ asset('storage/avatars/' . $user->avatar) }}"
+                                class="avatar-img"
+                                alt="Avatar">
+                        @else
+                            <div class="avatar-fallback">
+                                {{ strtoupper(substr($user->name ?? 'U', 0, 1)) }}
+                            </div>
+                        @endif
+                    </div>
+
+                    <h4 class="fw-bold mb-1">{{ $user->name }}</h4>
+                    <p class="text-muted mb-2">{{ $user->email }}</p>
+
+                    <!-- Premium Status -->
+                    @if($isPremium)
+                        <div class="status-badge status-premium mb-2">
+                            <i class="fas fa-crown me-2"></i> Premium Member
+                        </div>
+                        <div class="small text-muted">
+                            Aktif sampai <span class="fw-semibold">{{ $premiumUntil }}</span>
+                        </div>
+                    @else
+                        <div class="status-badge status-free mb-2">
+                            <i class="fas fa-heart me-2"></i> Free Member
+                        </div>
+                        <div class="small text-muted">
+                            Upgrade untuk akses resep eksklusif 💗
+                        </div>
+                    @endif
+
+                    <div class="divider my-4"></div>
+
+                    <div class="mini-info text-start">
+                        <div class="mini-row">
+                            <div class="mini-icon"><i class="fas fa-calendar-alt"></i></div>
+                            <div>
+                                <div class="mini-label">Member Sejak</div>
+                                <div class="mini-value">{{ optional($user->created_at)->format('d F Y') }}</div>
+                            </div>
+                        </div>
+
+                        @if($user->phone)
+                            <div class="mini-row mt-2">
+                                <div class="mini-icon"><i class="fas fa-phone"></i></div>
+                                <div>
+                                    <div class="mini-label">Telepon</div>
+                                    <div class="mini-value">{{ $user->formatted_phone ?? $user->phone }}</div>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($user->birthdate)
+                            <div class="mini-row mt-2">
+                                <div class="mini-icon"><i class="fas fa-birthday-cake"></i></div>
+                                <div>
+                                    <div class="mini-label">Tanggal Lahir</div>
+                                    <div class="mini-value">{{ $user->birthdate->format('d F Y') }}</div>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <!-- PREFERENCES -->
+            <div class="card card-soft border-0 mt-4">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="fw-bold mb-0">
+                            <i class="fas fa-heart text-pink me-2"></i>Preferensi Makanan
+                        </h5>
+                        <span class="text-muted small">opsional</span>
+                    </div>
+
+                    <form action="{{ route('profile.preferences') }}" method="POST">
+                        @csrf
+
+                        <div class="pref-grid">
+                            @foreach([
+                                'vegetarian' => 'Vegetarian',
+                                'vegan' => 'Vegan',
+                                'halal' => 'Halal',
+                                'spicy' => 'Suka Pedas',
+                                'sweet' => 'Suka Manis',
+                                'low_calorie' => 'Rendah Kalori'
+                            ] as $key => $label)
+                                <label class="pref-item">
+                                    <input
+                                        type="checkbox"
+                                        name="preferences[]"
+                                        value="{{ $key }}"
+                                        {{ in_array($key, $preferences) ? 'checked' : '' }}
+                                    >
+                                    <span class="pref-chip">
+                                        <span class="pref-dot"></span>
+                                        <span class="pref-text">{{ $label }}</span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+
+                        <button type="submit" class="btn btn-pink w-100 mt-3">
+                            <i class="fas fa-save me-2"></i>Simpan Preferensi
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="col-lg-8">
+            <!-- PROFILE DETAILS -->
+            <div class="card card-soft border-0">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="fw-bold mb-0">
+                            <i class="fas fa-user-circle text-pink me-2"></i>Informasi Profil
+                        </h5>
+                        <span class="pill">
+                            <i class="fas fa-shield-alt me-2"></i>Secure
+                        </span>
+                    </div>
+
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Nama Lengkap</div>
+                            <div class="info-value">{{ $user->name }}</div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-label">Email</div>
+                            <div class="info-value">{{ $user->email }}</div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-label">Status</div>
+                            <div class="info-value">
+                                @if($isPremium)
+                                    <span class="status-pill premium">
+                                        <i class="fas fa-crown me-2"></i>Premium
+                                    </span>
+                                @else
+                                    <span class="status-pill free">
+                                        <i class="fas fa-heart me-2"></i>Free
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-label">Member Sejak</div>
+                            <div class="info-value">{{ optional($user->created_at)->format('d F Y') }}</div>
+                        </div>
+
+                        @if($user->phone)
+                            <div class="info-item">
+                                <div class="info-label">Telepon</div>
+                                <div class="info-value">{{ $user->formatted_phone ?? $user->phone }}</div>
+                            </div>
+                        @endif
+
+                        @if($user->birthdate)
+                            <div class="info-item">
+                                <div class="info-label">Tanggal Lahir</div>
+                                <div class="info-value">{{ $user->birthdate->format('d F Y') }}</div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <!-- RECENT RECOMMENDATIONS -->
+            <div class="card card-soft border-0 mt-4">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="fw-bold mb-0">
+                            <i class="fas fa-history text-pink me-2"></i>Riwayat Rekomendasi
+                        </h5>
+                        <span class="text-muted small">terakhir kamu cari</span>
+                    </div>
+
+                    {{-- Kamu belum punya history -> empty state aesthetic --}}
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-utensils"></i>
+                        </div>
+                        <div class="mt-3">
+                            <div class="fw-bold">Belum ada riwayat rekomendasi</div>
+                            <div class="text-muted">Yuk cari makanan sesuai mood kamu sekarang ✨</div>
+                        </div>
+                        <div class="mt-4">
+                            <a href="{{ route('recommendations') }}" class="btn btn-gradient px-4">
+                                <i class="fas fa-search me-2"></i>Cari Rekomendasi
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TIP -->
+            <div class="tip-card mt-4">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="tip-icon">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold mb-1">Biar rekomendasi makin akurat</div>
+                        <div class="text-muted">
+                            Isi preferensi makanan + pilih mood kamu setiap kali cari menu. Nanti hasilnya makin “ngena” 💗
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
 </div>
+
+<style>
+:root{
+    --pink:#FF6B8B;
+    --pink2:#C8A2C8;
+    --pink-soft:#FFF0F5;
+    --text:#1f2937;
+}
+
+.text-pink{ color: var(--pink) !important; }
+
+/* HEADER */
+.profile-header{
+    background: linear-gradient(135deg, rgba(255,107,139,.12), rgba(200,162,200,.12));
+    border: 1px solid rgba(255,107,139,.15);
+    border-radius: 18px;
+    padding: 18px;
+}
+
+/* CARDS */
+.card-soft{
+    background: rgba(255,255,255,.92);
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(255,107,139,.08);
+    backdrop-filter: blur(6px);
+}
+
+.profile-card{
+    position: relative;
+    overflow: hidden;
+}
+.profile-card::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background: radial-gradient(circle at 20% 0%, rgba(255,107,139,.25), transparent 55%),
+                radial-gradient(circle at 100% 40%, rgba(200,162,200,.25), transparent 55%);
+    pointer-events:none;
+}
+
+.divider{
+    height: 1px;
+    background: rgba(255,107,139,.18);
+}
+
+/* BUTTONS */
+.btn-pink{
+    background: var(--pink);
+    border: none;
+    color: #fff;
+    border-radius: 12px;
+    padding: 10px 18px;
+    font-weight: 700;
+}
+.btn-pink:hover{
+    background: #E05575;
+    color: #fff;
+}
+
+.btn-outline-pink{
+    border: 2px solid var(--pink);
+    color: var(--pink);
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-weight: 700;
+    background: transparent;
+}
+.btn-outline-pink:hover{
+    background: var(--pink);
+    color: #fff;
+}
+
+.btn-gradient{
+    background: linear-gradient(135deg, var(--pink), var(--pink2));
+    border: none;
+    color:#fff;
+    border-radius: 14px;
+    padding: 10px 16px;
+    font-weight: 800;
+    box-shadow: 0 12px 25px rgba(255,107,139,.18);
+}
+.btn-gradient:hover{
+    filter: brightness(.98);
+    color:#fff;
+}
+
+/* AVATAR */
+.avatar-wrap{
+    width: 110px;
+    height: 110px;
+    border-radius: 999px;
+    padding: 4px;
+    background: linear-gradient(135deg, var(--pink), var(--pink2));
+}
+.avatar-img{
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 3px solid rgba(255,255,255,.9);
+}
+.avatar-fallback{
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 46px;
+    font-weight: 900;
+    color:#fff;
+    background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.25), transparent 45%),
+                linear-gradient(135deg, rgba(255,107,139,.95), rgba(200,162,200,.95));
+    border: 3px solid rgba(255,255,255,.9);
+}
+
+/* STATUS */
+.status-badge{
+    display:inline-flex;
+    align-items:center;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-weight: 800;
+}
+.status-premium{
+    background: rgba(255,107,139,.14);
+    color: var(--pink);
+    border: 1px solid rgba(255,107,139,.28);
+}
+.status-free{
+    background: rgba(107,114,128,.10);
+    color: #374151;
+    border: 1px solid rgba(107,114,128,.18);
+}
+
+/* MINI INFO */
+.mini-info .mini-row{
+    display:flex;
+    gap: 12px;
+    align-items:center;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255,107,139,.08);
+    border: 1px solid rgba(255,107,139,.18);
+}
+.mini-icon{
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: var(--pink);
+    background: rgba(255,255,255,.85);
+    border: 1px solid rgba(255,107,139,.18);
+}
+.mini-label{
+    font-size: 12px;
+    color: #6b7280;
+}
+.mini-value{
+    font-weight: 800;
+    color: var(--text);
+}
+
+/* INFO GRID */
+.info-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+.info-item{
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,107,139,.12);
+    background: rgba(255,255,255,.86);
+}
+.info-label{
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+.info-value{
+    font-weight: 800;
+    color: var(--text);
+}
+
+.pill{
+    font-size: 12px;
+    color: #6b7280;
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: 999px;
+    padding: 6px 10px;
+    background: rgba(255,255,255,.8);
+}
+
+.status-pill{
+    display:inline-flex;
+    align-items:center;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-weight: 900;
+}
+.status-pill.premium{
+    background: rgba(255,107,139,.12);
+    color: var(--pink);
+    border: 1px solid rgba(255,107,139,.25);
+}
+.status-pill.free{
+    background: rgba(107,114,128,.10);
+    color: #374151;
+    border: 1px solid rgba(107,114,128,.18);
+}
+
+/* PREFERENCES CHIP */
+.pref-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.pref-item{
+    cursor:pointer;
+    user-select:none;
+    display:block;
+}
+.pref-item input{ display:none; }
+
+.pref-chip{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,107,139,.14);
+    background: rgba(255,255,255,.86);
+    transition: .2s ease;
+}
+.pref-dot{
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255,107,139,.35);
+}
+.pref-text{
+    font-weight: 800;
+    font-size: 14px;
+    color: #374151;
+}
+.pref-item input:checked + .pref-chip{
+    background: rgba(255,107,139,.12);
+    border-color: rgba(255,107,139,.28);
+}
+.pref-item input:checked + .pref-chip .pref-dot{
+    background: var(--pink);
+}
+
+/* EMPTY STATE */
+.empty-state{
+    border-radius: 18px;
+    border: 1px dashed rgba(255,107,139,.25);
+    background: rgba(255,107,139,.05);
+    padding: 34px 18px;
+    text-align:center;
+}
+.empty-icon{
+    width: 62px;
+    height: 62px;
+    border-radius: 18px;
+    margin: 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: var(--pink);
+    background: rgba(255,255,255,.85);
+    border: 1px solid rgba(255,107,139,.18);
+    font-size: 24px;
+}
+
+/* TIP */
+.tip-card{
+    border-radius: 18px;
+    padding: 18px;
+    background: linear-gradient(135deg, rgba(255,107,139,.10), rgba(200,162,200,.10));
+    border: 1px solid rgba(255,107,139,.14);
+}
+.tip-icon{
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: rgba(255,255,255,.85);
+    border: 1px solid rgba(255,107,139,.18);
+    color: var(--pink);
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px){
+    .info-grid{ grid-template-columns: 1fr; }
+    .pref-grid{ grid-template-columns: 1fr; }
+}
+</style>
 @endsection
