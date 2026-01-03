@@ -7,27 +7,33 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
+use App\Models\RecommendationHistory;
+use App\Models\PremiumRecipe;
+
 class ProfileController extends Controller
 {
-    // Tampilkan halaman profil
     public function show()
     {
         $user = Auth::user();
-        return view('profile.show', compact('user'));
+
+        $recommendationHistory = RecommendationHistory::where('user_id', $user->id)
+            ->latest()
+            ->take(6)
+            ->get();
+
+        return view('profile.show', compact('user', 'recommendationHistory'));
     }
 
-    // Tampilkan form edit profil
     public function edit()
     {
         $user = Auth::user();
         return view('profile.edit', compact('user'));
     }
 
-    // Update profil
     public function update(Request $request)
     {
         $user = Auth::user();
-        
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
@@ -42,7 +48,6 @@ class ProfileController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
-        // Update data user
         $user->name = $request->name;
         $user->email = $request->email;
         $user->phone = $request->phone;
@@ -50,14 +55,11 @@ class ProfileController extends Controller
         $user->gender = $request->gender;
         $user->address = $request->address;
 
-        // Handle upload avatar
         if ($request->hasFile('avatar')) {
-            // Hapus avatar lama jika ada
             if ($user->avatar && Storage::exists('public/avatars/' . $user->avatar)) {
                 Storage::delete('public/avatars/' . $user->avatar);
             }
-            
-            // Upload avatar baru
+
             $avatarName = 'avatar_' . $user->id . '_' . time() . '.' . $request->avatar->extension();
             $request->avatar->storeAs('public/avatars', $avatarName);
             $user->avatar = $avatarName;
@@ -68,15 +70,48 @@ class ProfileController extends Controller
         return redirect()->route('profile.show')->with('success', 'Profil berhasil diperbarui!');
     }
 
-    // Update food preferences
     public function updatePreferences(Request $request)
     {
         $user = Auth::user();
-        
+
         $preferences = $request->input('preferences', []);
         $user->food_preferences = $preferences;
         $user->save();
 
         return back()->with('success', 'Preferensi makanan berhasil diperbarui!');
+    }
+
+    public function favorites()
+    {
+        $user = Auth::user();
+
+        $favoriteIds = $user->favorite_recipes ?? [];
+
+        $favorites = collect();
+        if (!empty($favoriteIds)) {
+            $favorites = PremiumRecipe::whereIn('id', $favoriteIds)
+                ->where('is_active', true)
+                ->get();
+        }
+
+        return view('profile.favorites', compact('user', 'favorites'));
+    }
+
+    public function recipeHistory()
+    {
+        $user = Auth::user();
+
+        $history = $user->recipe_view_history ?? [];
+
+        $recipeIds = collect($history)->pluck('recipe_id')->unique()->filter()->values();
+
+        $recipes = collect();
+        if ($recipeIds->count() > 0) {
+            $recipes = PremiumRecipe::whereIn('id', $recipeIds)
+                ->where('is_active', true)
+                ->get();
+        }
+
+        return view('profile.recipe-history', compact('user', 'history', 'recipes'));
     }
 }

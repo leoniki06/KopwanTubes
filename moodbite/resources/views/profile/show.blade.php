@@ -13,43 +13,63 @@
     }
     if (!is_array($preferences)) $preferences = [];
 
+    $isAdmin = ($user->role ?? null) === 'admin';
     $isPremium = $user->isPremium();
     $premiumUntil = optional($user->premium_until)->format('d F Y');
+
+    $history = $recommendationHistory ?? collect();
 @endphp
 
 <div class="container py-4">
-    <!-- HEADER -->
-    <div class="profile-header mb-4">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div>
-                <h3 class="fw-bold mb-1">Profil Kamu</h3>
-                <p class="text-muted mb-0">Kelola akun & preferensi makananmu 🍓</p>
-            </div>
 
-            <div class="d-flex gap-2">
-                <a href="{{ route('recommendations') }}" class="btn btn-gradient">
-                    <i class="fas fa-search me-2"></i>Cari Makanan
-                </a>
-                <a href="{{ route('profile.edit') }}" class="btn btn-outline-pink">
-                    <i class="fas fa-pen me-2"></i>Edit Profil
-                </a>
+    @if($isAdmin)
+        <div class="admin-hero mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <span class="admin-tag mb-2 d-inline-flex">
+                        <i class="fas fa-shield-halved me-2"></i>ADMIN PROFILE
+                    </span>
+                    <h3 class="fw-bold mb-1 text-white">Halo, {{ $user->name }} 👋</h3>
+                    <p class="text-white-50 mb-0">Kamu masuk sebagai Admin MoodBite, kelola user & membership di dashboard.</p>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <a href="{{ route('admin.dashboard') }}" class="btn btn-admin-primary">
+                        <i class="fas fa-chart-line me-2"></i>Admin Dashboard
+                    </a>
+                    <a href="{{ route('profile.edit') }}" class="btn btn-admin-outline">
+                        <i class="fas fa-pen me-2"></i>Edit Profil
+                    </a>
+                </div>
             </div>
         </div>
-    </div>
+    @else
+        <div class="profile-header mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold mb-1">Profil Kamu</h3>
+                    <p class="text-muted mb-0">Kelola akun & preferensi makananmu 🍓</p>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <a href="{{ route('recommendations') }}" class="btn btn-gradient">
+                        <i class="fas fa-search me-2"></i>Cari Makanan
+                    </a>
+                    <a href="{{ route('profile.edit') }}" class="btn btn-outline-pink">
+                        <i class="fas fa-pen me-2"></i>Edit Profil
+                    </a>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <div class="row g-4">
-        <!-- LEFT -->
         <div class="col-lg-4">
-            <!-- PROFILE CARD -->
             <div class="card card-soft border-0 profile-card">
                 <div class="card-body p-4 text-center">
-                    <!-- Avatar -->
                     <div class="avatar-wrap mx-auto mb-3">
                         @if($user->avatar)
-                            <img
-                                src="{{ asset('storage/avatars/' . $user->avatar) }}"
-                                class="avatar-img"
-                                alt="Avatar">
+                            <img src="{{ asset('storage/avatars/' . $user->avatar) }}" class="avatar-img" alt="Avatar">
                         @else
                             <div class="avatar-fallback">
                                 {{ strtoupper(substr($user->name ?? 'U', 0, 1)) }}
@@ -60,21 +80,34 @@
                     <h4 class="fw-bold mb-1">{{ $user->name }}</h4>
                     <p class="text-muted mb-2">{{ $user->email }}</p>
 
-                    <!-- Premium Status -->
-                    @if($isPremium)
-                        <div class="status-badge status-premium mb-2">
-                            <i class="fas fa-crown me-2"></i> Premium Member
+                    @if($isAdmin)
+                        <div class="status-badge status-admin mb-2">
+                            <i class="fas fa-shield-halved me-2"></i> Admin MoodBite
                         </div>
                         <div class="small text-muted">
-                            Aktif sampai <span class="fw-semibold">{{ $premiumUntil }}</span>
+                            Akses admin aktif tanpa membership premium
+                        </div>
+                        <div class="mt-3">
+                            <a href="{{ route('admin.dashboard') }}" class="btn btn-admin-primary w-100">
+                                <i class="fas fa-arrow-right me-2"></i>Masuk Dashboard Admin
+                            </a>
                         </div>
                     @else
-                        <div class="status-badge status-free mb-2">
-                            <i class="fas fa-heart me-2"></i> Free Member
-                        </div>
-                        <div class="small text-muted">
-                            Upgrade untuk akses resep eksklusif 💗
-                        </div>
+                        @if($isPremium)
+                            <div class="status-badge status-premium mb-2">
+                                <i class="fas fa-crown me-2"></i> Premium Member
+                            </div>
+                            <div class="small text-muted">
+                                Aktif sampai <span class="fw-semibold">{{ $premiumUntil }}</span>
+                            </div>
+                        @else
+                            <div class="status-badge status-free mb-2">
+                                <i class="fas fa-heart me-2"></i> Free Member
+                            </div>
+                            <div class="small text-muted">
+                                Upgrade untuk akses resep eksklusif 💗
+                            </div>
+                        @endif
                     @endif
 
                     <div class="divider my-4"></div>
@@ -111,7 +144,7 @@
                 </div>
             </div>
 
-            <!-- PREFERENCES -->
+            @if(!$isAdmin)
             <div class="card card-soft border-0 mt-4">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -134,12 +167,7 @@
                                 'low_calorie' => 'Rendah Kalori'
                             ] as $key => $label)
                                 <label class="pref-item">
-                                    <input
-                                        type="checkbox"
-                                        name="preferences[]"
-                                        value="{{ $key }}"
-                                        {{ in_array($key, $preferences) ? 'checked' : '' }}
-                                    >
+                                    <input type="checkbox" name="preferences[]" value="{{ $key }}" {{ in_array($key, $preferences) ? 'checked' : '' }}>
                                     <span class="pref-chip">
                                         <span class="pref-dot"></span>
                                         <span class="pref-text">{{ $label }}</span>
@@ -154,11 +182,10 @@
                     </form>
                 </div>
             </div>
+            @endif
         </div>
 
-        <!-- RIGHT -->
         <div class="col-lg-8">
-            <!-- PROFILE DETAILS -->
             <div class="card card-soft border-0">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -182,15 +209,15 @@
                         </div>
 
                         <div class="info-item">
-                            <div class="info-label">Status</div>
+                            <div class="info-label">Role</div>
                             <div class="info-value">
-                                @if($isPremium)
-                                    <span class="status-pill premium">
-                                        <i class="fas fa-crown me-2"></i>Premium
+                                @if($isAdmin)
+                                    <span class="status-pill admin">
+                                        <i class="fas fa-shield-halved me-2"></i>ADMIN
                                     </span>
                                 @else
                                     <span class="status-pill free">
-                                        <i class="fas fa-heart me-2"></i>Free
+                                        <i class="fas fa-user me-2"></i>USER
                                     </span>
                                 @endif
                             </div>
@@ -200,25 +227,10 @@
                             <div class="info-label">Member Sejak</div>
                             <div class="info-value">{{ optional($user->created_at)->format('d F Y') }}</div>
                         </div>
-
-                        @if($user->phone)
-                            <div class="info-item">
-                                <div class="info-label">Telepon</div>
-                                <div class="info-value">{{ $user->formatted_phone ?? $user->phone }}</div>
-                            </div>
-                        @endif
-
-                        @if($user->birthdate)
-                            <div class="info-item">
-                                <div class="info-label">Tanggal Lahir</div>
-                                <div class="info-value">{{ $user->birthdate->format('d F Y') }}</div>
-                            </div>
-                        @endif
                     </div>
                 </div>
             </div>
 
-            <!-- RECENT RECOMMENDATIONS -->
             <div class="card card-soft border-0 mt-4">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -228,25 +240,53 @@
                         <span class="text-muted small">terakhir kamu cari</span>
                     </div>
 
-                    {{-- Kamu belum punya history -> empty state aesthetic --}}
-                    <div class="empty-state">
-                        <div class="empty-icon">
-                            <i class="fas fa-utensils"></i>
+                    @if($history->count() > 0)
+                        <div class="history-list">
+                            @foreach($history as $item)
+                                <div class="history-item">
+                                    <div class="history-left">
+                                        <div class="history-icon">
+                                            <i class="fas fa-face-smile"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold">{{ ucfirst($item->mood) }}</div>
+                                            <div class="text-muted small">{{ $item->created_at->format('d M Y • H:i') }}</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="history-right">
+                                        <span class="history-pill">
+                                            {{ $item->total_recommendations ?? 0 }} menu
+                                        </span>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
-                        <div class="mt-3">
-                            <div class="fw-bold">Belum ada riwayat rekomendasi</div>
-                            <div class="text-muted">Yuk cari makanan sesuai mood kamu sekarang ✨</div>
-                        </div>
-                        <div class="mt-4">
+
+                        <div class="mt-4 text-center">
                             <a href="{{ route('recommendations') }}" class="btn btn-gradient px-4">
-                                <i class="fas fa-search me-2"></i>Cari Rekomendasi
+                                <i class="fas fa-search me-2"></i>Cari Lagi
                             </a>
                         </div>
-                    </div>
+                    @else
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <i class="fas fa-utensils"></i>
+                            </div>
+                            <div class="mt-3">
+                                <div class="fw-bold">Belum ada riwayat rekomendasi</div>
+                                <div class="text-muted">Yuk cari makanan sesuai mood kamu sekarang ✨</div>
+                            </div>
+                            <div class="mt-4">
+                                <a href="{{ route('recommendations') }}" class="btn btn-gradient px-4">
+                                    <i class="fas fa-search me-2"></i>Cari Rekomendasi
+                                </a>
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
 
-            <!-- TIP -->
             <div class="tip-card mt-4">
                 <div class="d-flex align-items-start gap-3">
                     <div class="tip-icon">
@@ -275,7 +315,6 @@
 
 .text-pink{ color: var(--pink) !important; }
 
-/* HEADER */
 .profile-header{
     background: linear-gradient(135deg, rgba(255,107,139,.12), rgba(200,162,200,.12));
     border: 1px solid rgba(255,107,139,.15);
@@ -283,7 +322,51 @@
     padding: 18px;
 }
 
-/* CARDS */
+.admin-hero{
+    background: linear-gradient(135deg, rgba(255,107,139,.98), rgba(200,162,200,.98));
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 20px 40px rgba(255,107,139,.25);
+}
+
+.admin-tag{
+    background: rgba(255,255,255,.20);
+    border: 1px solid rgba(255,255,255,.25);
+    color: #fff;
+    font-weight: 900;
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    align-items: center;
+}
+
+.btn-admin-primary{
+    background: linear-gradient(135deg, #FFD166, #FF6B8B);
+    border: none;
+    color: #fff;
+    font-weight: 900;
+    padding: 10px 16px;
+    border-radius: 14px;
+    box-shadow: 0 12px 25px rgba(0,0,0,.12);
+}
+.btn-admin-primary:hover{
+    filter: brightness(.98);
+    color: #fff;
+}
+
+.btn-admin-outline{
+    background: transparent;
+    border: 2px solid rgba(255,255,255,.75);
+    color: #fff;
+    font-weight: 900;
+    padding: 10px 16px;
+    border-radius: 14px;
+}
+.btn-admin-outline:hover{
+    background: rgba(255,255,255,.15);
+    color:#fff;
+}
+
 .card-soft{
     background: rgba(255,255,255,.92);
     border-radius: 18px;
@@ -309,7 +392,6 @@
     background: rgba(255,107,139,.18);
 }
 
-/* BUTTONS */
 .btn-pink{
     background: var(--pink);
     border: none;
@@ -350,7 +432,6 @@
     color:#fff;
 }
 
-/* AVATAR */
 .avatar-wrap{
     width: 110px;
     height: 110px;
@@ -380,7 +461,6 @@
     border: 3px solid rgba(255,255,255,.9);
 }
 
-/* STATUS */
 .status-badge{
     display:inline-flex;
     align-items:center;
@@ -398,8 +478,12 @@
     color: #374151;
     border: 1px solid rgba(107,114,128,.18);
 }
+.status-admin{
+    background: rgba(255,209,102,.20);
+    color: #9A6A00;
+    border: 1px solid rgba(255,209,102,.40);
+}
 
-/* MINI INFO */
 .mini-info .mini-row{
     display:flex;
     gap: 12px;
@@ -429,7 +513,6 @@
     color: var(--text);
 }
 
-/* INFO GRID */
 .info-grid{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -467,10 +550,10 @@
     border-radius: 999px;
     font-weight: 900;
 }
-.status-pill.premium{
-    background: rgba(255,107,139,.12);
-    color: var(--pink);
-    border: 1px solid rgba(255,107,139,.25);
+.status-pill.admin{
+    background: rgba(255,209,102,.18);
+    color: #9A6A00;
+    border: 1px solid rgba(255,209,102,.35);
 }
 .status-pill.free{
     background: rgba(107,114,128,.10);
@@ -478,7 +561,6 @@
     border: 1px solid rgba(107,114,128,.18);
 }
 
-/* PREFERENCES CHIP */
 .pref-grid{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -520,7 +602,6 @@
     background: var(--pink);
 }
 
-/* EMPTY STATE */
 .empty-state{
     border-radius: 18px;
     border: 1px dashed rgba(255,107,139,.25);
@@ -542,7 +623,6 @@
     font-size: 24px;
 }
 
-/* TIP */
 .tip-card{
     border-radius: 18px;
     padding: 18px;
@@ -561,7 +641,49 @@
     color: var(--pink);
 }
 
-/* RESPONSIVE */
+.history-list{
+    display:flex;
+    flex-direction:column;
+    gap: 12px;
+}
+.history-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,107,139,.14);
+    background: rgba(255,255,255,.86);
+    transition: .2s ease;
+}
+.history-item:hover{
+    background: rgba(255,107,139,.07);
+}
+.history-left{
+    display:flex;
+    align-items:center;
+    gap: 12px;
+}
+.history-icon{
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: rgba(255,107,139,.12);
+    color: var(--pink);
+}
+.history-pill{
+    font-size: 12px;
+    font-weight: 900;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(255,107,139,.12);
+    border: 1px solid rgba(255,107,139,.22);
+    color: var(--pink);
+}
+
 @media (max-width: 768px){
     .info-grid{ grid-template-columns: 1fr; }
     .pref-grid{ grid-template-columns: 1fr; }

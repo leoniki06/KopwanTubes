@@ -8,7 +8,8 @@ use App\Http\Controllers\FoodRecommendationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MembershipController;
 use App\Http\Controllers\PremiumRecipeController;
-use App\Models\Membership;
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\GoogleAuthController;
 
 // ====================
 // SPLASH SCREEN
@@ -36,8 +37,18 @@ Route::middleware('auth')->group(function () {
     // LOGOUT
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    // DASHBOARD
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    // ✅ DASHBOARD (AUTO REDIRECT ADMIN)
+    Route::get('/dashboard', function () {
+        $user = Auth::user();
+
+        // kalau admin, langsung ke dashboard admin
+        if ($user && method_exists($user, 'isAdmin') && $user->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        // kalau bukan admin, ke dashboard user biasa
+        return app(DashboardController::class)->index();
+    })->name('dashboard');
 
     // FOOD RECOMMENDATION
     Route::get('/recommendations', [FoodRecommendationController::class, 'index'])
@@ -71,46 +82,45 @@ Route::middleware('auth')->group(function () {
     // PREMIUM RECIPES - RESEP EKSKLUSIF
     // ====================
     Route::prefix('premium')->group(function () {
-        // Halaman utama resep eksklusif (perlu premium)
         Route::get('/recipes', [PremiumRecipeController::class, 'index'])
             ->name('premium.recipes.index');
-        
-        // Detail resep eksklusif (perlu premium)
+
         Route::get('/recipes/{id}', [PremiumRecipeController::class, 'show'])
             ->name('premium.recipes.show');
-        
-        // Preview resep untuk non-premium (info terbatas)
+
         Route::get('/recipes/{id}/preview', [PremiumRecipeController::class, 'preview'])
             ->name('premium.recipes.preview');
-        
-        // Cari resep berdasarkan mood
+
         Route::get('/recipes/mood/{mood}', [PremiumRecipeController::class, 'byMood'])
             ->name('premium.recipes.mood');
-        
-        // Filter resep berdasarkan kesulitan
+
         Route::get('/recipes/difficulty/{difficulty}', [PremiumRecipeController::class, 'byDifficulty'])
             ->name('premium.recipes.difficulty');
-        
-        // Favorit Resep
+
         Route::post('/recipes/{id}/favorite', [PremiumRecipeController::class, 'toggleFavorite'])
             ->name('premium.recipes.favorite');
-        
-        // Dashboard premium user
+
         Route::get('/dashboard', [PremiumRecipeController::class, 'dashboard'])
             ->name('premium.dashboard');
     });
 });
 
 // ====================
+// ✅ ADMIN ROUTES (HARUS LOGIN + ADMIN)
+// ====================
+Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])
+        ->name('admin.dashboard');
+});
+
+// ====================
 // PUBLIC ROUTES (PREMIUM PROMO)
 // ====================
 Route::prefix('premium')->group(function () {
-    // Halaman info premium (public)
     Route::get('/info', function () {
         return view('premium.info');
     })->name('premium.info');
-    
-    // List chef ternama (public)
+
     Route::get('/chefs', function () {
         return view('premium.chefs');
     })->name('premium.chefs');
@@ -128,8 +138,7 @@ Route::middleware('auth')->group(function () {
             'can_access' => $user->canAccessPremiumFeatures()
         ]);
     })->name('api.check-premium-access');
-    
-    // API Premium Recipes
+
     Route::prefix('api/premium')->group(function () {
         Route::get('/recipes', [PremiumRecipeController::class, 'apiIndex'])
             ->name('api.premium.recipes');
@@ -147,3 +156,6 @@ Route::fallback(function () {
     }
     return redirect()->route('splash');
 });
+
+Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])->name('google.redirect');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('google.callback');

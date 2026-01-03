@@ -8,14 +8,12 @@ use Illuminate\Support\Facades\Auth;
 
 class PremiumRecipeController extends Controller
 {
-    // Tampilkan semua resep eksklusif (hanya untuk premium)
     public function index(Request $request)
     {
         $user = Auth::user();
-        
-        // Jika bukan premium, redirect ke halaman membership
+
         if (!$user->isPremiumActive()) {
-            return redirect()->route('membership')
+            return redirect()->route('membership.index')
                 ->with('error', 'Anda perlu upgrade ke premium untuk mengakses resep eksklusif');
         }
 
@@ -29,19 +27,16 @@ class PremiumRecipeController extends Controller
         return view('premium.recipes', compact('recipes'));
     }
 
-    // Detail resep
     public function show($id)
     {
         $recipe = PremiumRecipe::active()->findOrFail($id);
         return view('premium.recipe-detail', compact('recipe'));
     }
 
-    // Preview terbatas untuk non-premium
-    public function showPreview($id)
+    public function preview($id)
     {
         $recipe = PremiumRecipe::active()->findOrFail($id);
-        
-        // Hanya tampilkan sebagian informasi
+
         $previewData = [
             'chef_name' => $recipe->chef_name,
             'recipe_name' => $recipe->recipe_name,
@@ -54,12 +49,16 @@ class PremiumRecipeController extends Controller
         return view('premium.recipe-preview', compact('previewData'));
     }
 
-    // Tambah ke favorit
-    public function addToFavorites($id)
+    public function toggleFavorite($id)
     {
         $user = Auth::user();
+
+        if (!$user || !$user->isPremiumActive()) {
+            return back()->with('error', 'Harus premium untuk menambahkan favorit');
+        }
+
         $user->addFavoriteRecipe($id);
-        
+
         return back()->with('success', 'Resep ditambahkan ke favorit!');
     }
 }
