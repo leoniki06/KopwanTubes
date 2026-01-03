@@ -3,19 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\LoginLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    // Tampilkan halaman login
     public function showLogin()
     {
         return view('auth.login');
     }
 
-    // Proses login
     public function login(Request $request)
     {
         $request->validate([
@@ -25,6 +24,17 @@ class AuthController extends Controller
 
         if (Auth::attempt($request->only('email', 'password'), $request->remember)) {
             $request->session()->regenerate();
+
+            $user = Auth::user();
+
+            LoginLog::create([
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'provider' => 'manual',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
+
             return redirect()->route('dashboard');
         }
 
@@ -33,13 +43,11 @@ class AuthController extends Controller
         ]);
     }
 
-    // Tampilkan halaman register
     public function showRegister()
     {
         return view('auth.register');
     }
 
-    // Proses register
     public function register(Request $request)
     {
         $request->validate([
@@ -56,10 +64,17 @@ class AuthController extends Controller
 
         Auth::login($user);
 
+        LoginLog::create([
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'provider' => 'manual',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
         return redirect()->route('dashboard');
     }
 
-    // Proses logout
     public function logout(Request $request)
     {
         Auth::logout();

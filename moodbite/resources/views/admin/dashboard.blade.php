@@ -4,23 +4,18 @@
 
 @section('content')
 @php
-    // ==== FIX VARIABLE MISMATCH DARI CONTROLLER ====
-    // Controller ngirim: $users, $totalUsers, $totalPremium, $labels, $values
-    // Blade lama pakai: $latestUsers, $premiumUsers, $nonPremiumUsers
-
     $latestUsers = isset($users) ? $users->take(10) : collect();
 
     $premiumUsers = $totalPremium ?? 0;
     $nonPremiumUsers = ($totalUsers ?? 0) - $premiumUsers;
 
-    // Chart labels & values (kalau kosong fallback dummy)
-    $chartLabels = (isset($labels) && count($labels)) ? $labels : collect(["Sen","Sel","Rab","Kam","Jum","Sab","Min"]);
-    $chartValues = (isset($values) && count($values)) ? $values : collect([120,190,130,250,220,300,280]);
+    $chartLabels = isset($labels) ? $labels : [];
+    $chartVisitorValues = isset($visitorValues) ? $visitorValues : [];
+    $chartLoginValues = isset($loginValues) ? $loginValues : [];
 @endphp
 
 <div class="admin-wrap py-4">
 
-    <!-- Header -->
     <div class="admin-header rounded-4 p-4 mb-4 shadow-sm">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div>
@@ -40,10 +35,8 @@
         </div>
     </div>
 
-    <!-- Stats Cards -->
     <div class="row g-4 mb-4">
 
-        <!-- Total Users -->
         <div class="col-md-4">
             <div class="card stat-card stat-pink border-0 rounded-4 shadow-sm h-100">
                 <div class="card-body p-4">
@@ -59,7 +52,6 @@
             </div>
         </div>
 
-        <!-- Premium Users -->
         <div class="col-md-4">
             <div class="card stat-card stat-gold border-0 rounded-4 shadow-sm h-100">
                 <div class="card-body p-4">
@@ -75,7 +67,6 @@
             </div>
         </div>
 
-        <!-- Non Premium Users -->
         <div class="col-md-4">
             <div class="card stat-card stat-blue border-0 rounded-4 shadow-sm h-100">
                 <div class="card-body p-4">
@@ -93,32 +84,29 @@
 
     </div>
 
-    <!-- Grid Section -->
     <div class="row g-4">
 
-        <!-- Chart Visitors -->
         <div class="col-lg-7">
             <div class="card border-0 rounded-4 shadow-sm h-100">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="fw-bold mb-0 text-pink">
-                            <i class="fas fa-chart-line me-2"></i> Grafik Pengunjung
+                            <i class="fas fa-chart-line me-2"></i> Grafik Aktivitas
                         </h5>
                         <span class="badge bg-pink-soft text-pink">Last 7 days</span>
                     </div>
 
                     <div class="chart-box rounded-4 p-4">
-                        <canvas id="visitorChart" height="120"></canvas>
+                        <canvas id="visitorChart" height="130"></canvas>
                     </div>
 
                     <p class="text-muted small mt-3 mb-0">
-                        *Kalau tabel visitor_logs belum ada, grafik akan tampil dummy (biar UI tetap aman).
+                        Data dihitung berdasarkan jumlah akses halaman per hari & total login per hari.
                     </p>
                 </div>
             </div>
         </div>
 
-        <!-- Quick Actions -->
         <div class="col-lg-5">
             <div class="card border-0 rounded-4 shadow-sm h-100">
                 <div class="card-body p-4">
@@ -127,27 +115,26 @@
                     </h5>
 
                     <div class="d-grid gap-3">
-                        <a href="#" class="btn btn-admin-action">
+                        <a href="{{ route('admin.dashboard') }}" class="btn btn-admin-action">
                             <i class="fas fa-users me-2"></i> Lihat Semua User
                         </a>
 
-                        <a href="#" class="btn btn-admin-action">
+                        <a href="{{ route('membership.index') }}" class="btn btn-admin-action">
                             <i class="fas fa-crown me-2"></i> Data Membership Premium
                         </a>
 
-                        <a href="#" class="btn btn-admin-action">
+                        <a href="{{ route('premium.recipes.index') }}" class="btn btn-admin-action">
                             <i class="fas fa-utensils me-2"></i> Kelola Resep Premium
                         </a>
 
-                        <a href="#" class="btn btn-admin-action-outline">
-                            <i class="fas fa-file-invoice-dollar me-2"></i> Payment & Subscription
+                        <a href="{{ route('dashboard') }}" class="btn btn-admin-action-outline">
+                            <i class="fas fa-arrow-left me-2"></i> Kembali ke Dashboard User
                         </a>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Latest Users Table -->
         <div class="col-12">
             <div class="card border-0 rounded-4 shadow-sm">
                 <div class="card-body p-4">
@@ -230,13 +217,9 @@
     --text:#444;
 }
 
-/* Wrapper */
 .admin-wrap{ min-height: 80vh; }
-
-/* Header */
 .admin-header{ background: linear-gradient(135deg, #FF6B8B, #C8A2C8); }
 
-/* Stat Card */
 .stat-card{ transition: .25s ease; }
 .stat-card:hover{
     transform: translateY(-4px);
@@ -258,12 +241,10 @@
 .text-blue{ color: var(--blue) !important; }
 .bg-blue-soft{ background: var(--blue-soft) !important; }
 
-/* Chart box */
 .chart-box{
     background: linear-gradient(135deg, rgba(255,107,139,.08), rgba(200,162,200,.07));
 }
 
-/* Admin action buttons */
 .btn-admin-action{
     background: linear-gradient(135deg, var(--pink), var(--gold));
     color: #fff;
@@ -293,7 +274,6 @@
     color: #fff;
 }
 
-/* Avatar Mini */
 .avatar-mini{
     width: 36px; height: 36px;
     border-radius: 999px;
@@ -305,35 +285,50 @@
     font-weight: 800;
 }
 
-/* Table */
 .table thead{ border-bottom: 1px solid #eee; }
 .table-hover tbody tr:hover{ background: rgba(255,107,139,0.05); }
 </style>
 
-{{-- ChartJS --}}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const ctx = document.getElementById('visitorChart');
 
     const labels = @json($chartLabels);
-    const values = @json($chartValues);
+    const visitorValues = @json($chartVisitorValues);
+    const loginValues = @json($chartLoginValues);
 
     new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{
-                label: "Pengunjung",
-                data: values,
-                tension: 0.35,
-                fill: true
-            }]
+            datasets: [
+                {
+                    label: "Pengunjung",
+                    data: visitorValues,
+                    tension: 0.35,
+                    fill: true
+                },
+                {
+                    label: "Login",
+                    data: loginValues,
+                    tension: 0.35,
+                    fill: false
+                }
+            ]
         },
         options: {
             responsive: true,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
+            plugins: { legend: { display: true } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0,
+                        stepSize: 1
+                    }
+                }
+            }
         }
     });
 });
