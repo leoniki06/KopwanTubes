@@ -34,15 +34,11 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 
 WORKDIR /var/www/html
 
-# ==========
-# IMPORTANT:
-# App kamu ada di folder moodbite/
-# ==========
-
+# App ada di folder moodbite/
 # Copy composer files dari moodbite untuk cache layer
 COPY moodbite/composer.json moodbite/composer.lock* ./
 
-# Install dependencies (lebih aman untuk CI)
+# Install dependencies (aman untuk CI)
 RUN composer install \
     --no-interaction \
     --no-dev \
@@ -53,16 +49,9 @@ RUN composer install \
 # Copy seluruh source Laravel dari moodbite ke workdir
 COPY moodbite/ ./
 
-# Kalau kamu punya entrypoint, taruh juga di moodbite/ (atau bikin di root)
-# Jika file ini belum ada, HAPUS 2 baris di bawah supaya build tidak gagal.
-COPY moodbite/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
 # Permissions Laravel
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
  && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 EXPOSE 80
-
-ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["apache2-foreground"]
