@@ -13,7 +13,7 @@ pipeline {
       steps { checkout scm }
     }
 
-    stage('Debug - Show Dockerfile') {
+    stage('Debug - Show Structure') {
       steps {
         bat """
           echo === Git Commit Used ===
@@ -23,8 +23,11 @@ pipeline {
           echo === Root Files ===
           dir
 
-          echo === Dockerfile Content ===
-          type Dockerfile
+          echo === moodbite Files ===
+          dir moodbite
+
+          echo === Dockerfile Used (moodbite\\\\Dockerfile) ===
+          type moodbite\\Dockerfile
         """
       }
     }
@@ -35,8 +38,8 @@ pipeline {
           echo === Docker Version ===
           docker version
 
-          echo === Build Image (no-cache) ===
-          docker build --no-cache -t %IMAGE_NAME%:%IMAGE_TAG% .
+          echo === Build Image (no-cache) from moodbite/ ===
+          docker build --no-cache -t %IMAGE_NAME%:%IMAGE_TAG% -f moodbite/Dockerfile moodbite
 
           echo === Tag Latest ===
           docker tag %IMAGE_NAME%:%IMAGE_TAG% %IMAGE_NAME%:latest
@@ -45,9 +48,6 @@ pipeline {
     }
 
     stage('Login Docker Hub') {
-      when {
-        expression { currentBuild.currentResult == 'SUCCESS' }
-      }
       steps {
         withCredentials([usernamePassword(
           credentialsId: 'dockerhub-creds',
@@ -63,9 +63,6 @@ pipeline {
     }
 
     stage('Tag & Push Docker Image') {
-      when {
-        expression { currentBuild.currentResult == 'SUCCESS' }
-      }
       steps {
         withCredentials([usernamePassword(
           credentialsId: 'dockerhub-creds',
