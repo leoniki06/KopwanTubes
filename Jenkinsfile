@@ -3,32 +3,42 @@ pipeline {
   options { timestamps() }
 
   environment {
-    DOCKERHUB_USER = "allysa20"
+    DOCKERHUB_USER = "ISI_USERNAME_DOCKERHUB"
     IMAGE_NAME     = "kopwan-tubes"
     IMAGE_TAG      = "${BUILD_NUMBER}"
 
-    // ini folder project, JANGAN pakai nama DOCKER_CONTEXT
-    BUILD_CONTEXT  = "moodbite"
-    DOCKERFILE_PATH = "moodbite/Dockerfile"
+    BUILD_FOLDER   = "moodbite"
   }
 
   stages {
+
     stage('Checkout') {
       steps { checkout scm }
     }
 
-    stage('Force Docker to default context') {
+    stage('Force Docker default context') {
       steps {
         bat """
           @echo on
-          echo === Docker contexts ===
           docker context ls
-
-          echo === Force use default context ===
-          docker context use default || echo "default context already used"
-
-          echo === Docker version ===
+          docker context use default || echo "default already"
           docker version
+        """
+      }
+    }
+
+    stage('Verify Project Structure') {
+      steps {
+        bat """
+          @echo on
+          echo === Root ===
+          dir
+
+          echo === moodbite ===
+          dir %BUILD_FOLDER%
+
+          echo === Check Dockerfile ===
+          dir %BUILD_FOLDER%\\Dockerfile
         """
       }
     }
@@ -37,7 +47,13 @@ pipeline {
       steps {
         bat """
           @echo on
-          docker build --no-cache -f %DOCKERFILE_PATH% -t %IMAGE_NAME%:%IMAGE_TAG% %BUILD_CONTEXT%
+          if not exist %BUILD_FOLDER%\\Dockerfile (
+            echo ERROR: %BUILD_FOLDER%\\Dockerfile NOT FOUND
+            exit /b 1
+          )
+
+          cd %BUILD_FOLDER%
+          docker build --no-cache -f Dockerfile -t %IMAGE_NAME%:%IMAGE_TAG% .
           docker tag %IMAGE_NAME%:%IMAGE_TAG% %IMAGE_NAME%:latest
         """
       }
@@ -74,8 +90,5 @@ pipeline {
       """
       cleanWs()
     }
-
-    success { echo "✅ Sukses push: %DOCKERHUB_USER%/%IMAGE_NAME%:%IMAGE_TAG% dan :latest" }
-    failure { echo "❌ Gagal. Cek error stage Docker." }
   }
 }
