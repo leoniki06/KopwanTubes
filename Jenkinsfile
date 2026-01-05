@@ -4,7 +4,7 @@ pipeline {
 
   environment {
     // Docker Hub (repo = <username>/<image>)
-    DOCKERHUB_USER = "ISI_DENGAN_USERNAME_DOCKERHUB_KAMU"
+    DOCKERHUB_USER = "allysa20"
     IMAGE_NAME     = "kopwan-tubes"
     IMAGE_TAG      = "${BUILD_NUMBER}"
 
