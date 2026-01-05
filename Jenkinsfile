@@ -3,81 +3,110 @@ pipeline {
   options { timestamps() }
 
   environment {
-    IMAGE_NAME = "kopwan-tubes"
-    IMAGE_TAG  = "${BUILD_NUMBER}"
+    // Docker Hub (repo = <username>/<image>)
+    DOCKERHUB_USER = "ISI_DENGAN_USERNAME_DOCKERHUB_KAMU"
+    IMAGE_NAME     = "kopwan-tubes"
+    IMAGE_TAG      = "${BUILD_NUMBER}"
+
+    // Project kamu ada di folder moodbite/
+    DOCKER_CONTEXT  = "moodbite"
+    DOCKERFILE_PATH = "moodbite/Dockerfile"
   }
 
   stages {
 
-    stage('Checkout Source') {
+    stage('Checkout') {
       steps { checkout scm }
     }
 
-    stage('Debug - Show Structure') {
+    stage('Show Info') {
       steps {
-        bat """
-          echo === Git Commit Used ===
-          git rev-parse HEAD
-          git log -1 --oneline
-
-          echo === Root Files ===
-          dir
-
-          echo === moodbite Files ===
-          dir moodbite
-
-          echo === Dockerfile Used (moodbite\\\\Dockerfile) ===
-          type moodbite\\Dockerfile
-        """
-      }
-    }
-
-    stage('Build Docker Image') {
-      steps {
-        bat """
-          echo === Docker Version ===
-          docker version
-
-          echo === Build Image (no-cache) from moodbite/ ===
-          docker build --no-cache -t %IMAGE_NAME%:%IMAGE_TAG% -f moodbite/Dockerfile moodbite
-
-          echo === Tag Latest ===
-          docker tag %IMAGE_NAME%:%IMAGE_TAG% %IMAGE_NAME%:latest
-        """
-      }
-    }
-
-    stage('Login Docker Hub') {
-      steps {
-        withCredentials([usernamePassword(
-          credentialsId: 'dockerhub-creds',
-          usernameVariable: 'DH_USER',
-          passwordVariable: 'DH_TOKEN'
-        )]) {
-          bat """
-            echo === Docker Hub Login ===
-            echo %DH_TOKEN% | docker login -u %DH_USER% --password-stdin
-          """
+        script {
+          if (isUnix()) {
+            sh """
+              set -eux
+              echo "Commit:"
+              git rev-parse HEAD
+              ls -la
+              ls -la moodbite
+            """
+          } else {
+            bat """
+              @echo on
+              echo Commit:
+              git rev-parse HEAD
+              dir
+              dir moodbite
+            """
+          }
         }
       }
     }
 
-    stage('Tag & Push Docker Image') {
+    stage('Check Docker') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh "docker version"
+          } else {
+            bat "docker version"
+          }
+        }
+      }
+    }
+
+    stage('Build Image') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh """
+              set -eux
+              docker build --no-cache -f ${DOCKERFILE_PATH} -t ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_CONTEXT}
+              docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
+            """
+          } else {
+            bat """
+              @echo on
+              docker build --no-cache -f %DOCKERFILE_PATH% -t %IMAGE_NAME%:%IMAGE_TAG% %DOCKER_CONTEXT%
+              docker tag %IMAGE_NAME%:%IMAGE_TAG% %IMAGE_NAME%:latest
+            """
+          }
+        }
+      }
+    }
+
+    stage('Login & Push (Docker Hub)') {
       steps {
         withCredentials([usernamePassword(
           credentialsId: 'dockerhub-creds',
           usernameVariable: 'DH_USER',
           passwordVariable: 'DH_TOKEN'
         )]) {
-          bat """
-            echo === Tag for Docker Hub ===
-            docker tag %IMAGE_NAME%:%IMAGE_TAG% %DH_USER%/%IMAGE_NAME%:%IMAGE_TAG%
-            docker tag %IMAGE_NAME%:latest %DH_USER%/%IMAGE_NAME%:latest
+          script {
+            if (isUnix()) {
+              sh """
+                set -eux
+                echo "${DH_TOKEN}" | docker login -u "${DH_USER}" --password-stdin
 
-            echo === Push to Docker Hub ===
-            docker push %DH_USER%/%IMAGE_NAME%:%IMAGE_TAG%
-            docker push %DH_USER%/%IMAGE_NAME%:latest
-          """
+                docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
+                docker tag ${IMAGE_NAME}:latest ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
+
+                docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
+                docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
+              """
+            } else {
+              bat """
+                @echo on
+                echo %DH_TOKEN% | docker login -u %DH_USER% --password-stdin
+
+                docker tag %IMAGE_NAME%:%IMAGE_TAG% %DOCKERHUB_USER%/%IMAGE_NAME%:%IMAGE_TAG%
+                docker tag %IMAGE_NAME%:latest %DOCKERHUB_USER%/%IMAGE_NAME%:latest
+
+                docker push %DOCKERHUB_USER%/%IMAGE_NAME%:%IMAGE_TAG%
+                docker push %DOCKERHUB_USER%/%IMAGE_NAME%:latest
+              """
+            }
+          }
         }
       }
     }
@@ -85,13 +114,30 @@ pipeline {
 
   post {
     always {
-      bat """
-        echo === Local images (if any) ===
-        docker images | findstr %IMAGE_NAME% || echo "No image found (build may have failed)."
+      script {
+        if (isUnix()) {
+          sh """
+            docker images | head -n 25 || true
+            docker logout || true
+          """
+        } else {
+          bat """
+            docker images
+            docker logout
+          """
+        }
+      }
 
-        echo === Logout (optional) ===
-        docker logout || echo "Not logged in."
-      """
+      // optional: bersihin workspace
+      cleanWs()
+    }
+
+    success {
+      echo "✅ Build & Push sukses: ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} dan :latest"
+    }
+
+    failure {
+      echo "❌ Pipeline gagal. Lihat log di stage yang error."
     }
   }
 }
