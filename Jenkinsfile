@@ -2,14 +2,12 @@ pipeline {
   agent any
 
   environment {
-    DOCKERHUB_USER = "dockerhubusername"   // GANTI
-    IMAGE_NAME     = "kopwan-tubes"
-    IMAGE_TAG      = "${BUILD_NUMBER}"
+    IMAGE_NAME = "kopwan-tubes"
+    IMAGE_TAG  = "${BUILD_NUMBER}"
   }
 
   stages {
-
-    stage('Checkout Source') {
+    stage('Checkout') {
       steps {
         checkout scm
       }
@@ -17,9 +15,10 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        sh """
-          docker build -t ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} .
-          docker tag ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
+        bat """
+          docker version
+          docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
+          docker tag %IMAGE_NAME%:%IMAGE_TAG% %IMAGE_NAME%:latest
         """
       }
     }
@@ -28,30 +27,40 @@ pipeline {
       steps {
         withCredentials([usernamePassword(
           credentialsId: 'dockerhub-creds',
-          usernameVariable: 'DOCKER_USER',
-          passwordVariable: 'DOCKER_PASS'
+          usernameVariable: 'DH_USER',
+          passwordVariable: 'DH_TOKEN'
         )]) {
-          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+          bat """
+            echo %DH_TOKEN% | docker login -u %DH_USER% --password-stdin
+          """
         }
       }
     }
 
-    stage('Push Docker Image') {
+    stage('Tag & Push Docker Image') {
       steps {
-        sh """
-          docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
-          docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
-        """
+        withCredentials([usernamePassword(
+          credentialsId: 'dockerhub-creds',
+          usernameVariable: 'DH_USER',
+          passwordVariable: 'DH_TOKEN'
+        )]) {
+          bat """
+            docker tag %IMAGE_NAME%:%IMAGE_TAG% %DH_USER%/%IMAGE_NAME%:%IMAGE_TAG%
+            docker tag %IMAGE_NAME%:latest %DH_USER%/%IMAGE_NAME%:latest
+
+            docker push %DH_USER%/%IMAGE_NAME%:%IMAGE_TAG%
+            docker push %DH_USER%/%IMAGE_NAME%:latest
+          """
+        }
       }
     }
   }
 
   post {
-    success {
-      echo "SUCCESS: Docker image pushed to Docker Hub"
-    }
-    failure {
-      echo "FAILED: Pipeline error"
+    always {
+      bat """
+        docker images | findstr %IMAGE_NAME%
+      """
     }
   }
 }
