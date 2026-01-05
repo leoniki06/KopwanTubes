@@ -7,17 +7,16 @@ use Illuminate\Support\Facades\Auth;
 use Midtrans\Config;
 use Midtrans\Snap;
 use App\Models\Membership;
-use App\Models\User;
 
 class MembershipController extends Controller
 {
     public function __construct()
     {
-        // Konfigurasi Midtrans (DISIAPKAN, BELUM DIPAKAI)
-        Config::$serverKey = config('services.midtrans.server_key');
-        Config::$isProduction = config('services.midtrans.is_production');
-        Config::$isSanitized = config('services.midtrans.is_sanitized');
-        Config::$is3ds = config('services.midtrans.is_3ds');
+        // Konfigurasi Midtrans
+        Config::$serverKey     = config('services.midtrans.server_key');
+        Config::$isProduction  = config('services.midtrans.is_production');
+        Config::$isSanitized   = config('services.midtrans.is_sanitized');
+        Config::$is3ds         = config('services.midtrans.is_3ds');
     }
 
     // =============================
@@ -31,42 +30,45 @@ class MembershipController extends Controller
         $plans = [
             'monthly' => [
                 'name' => 'Bulanan',
-                'price' => 49000,
+                'price' => 30000,
                 'period' => '1 bulan',
                 'features' => [
-                    'Akses rekomendasi premium',
-                    'Detail restoran lengkap',
-                    'Resep eksklusif',
-                    'Priority support',
-                    'Diskon partner 10%'
+                    'Unlimited rekomendasi per hari',
+                    'Akses resep eksklusif premium',
+                    'History rekomendasi tanpa batas',
+                    'Favorit lebih banyak',
+                    'Tanpa iklan'
                 ],
-                'best_value' => false
+                'best_value' => false,
+                'badge' => null
             ],
             'yearly' => [
                 'name' => 'Tahunan',
-                'price' => 490000,
+                'price' => 300000,
                 'period' => '1 tahun',
                 'features' => [
                     'Semua fitur bulanan',
-                    'Gratis 2 bulan',
-                    'Diskon partner 15%',
-                    'Konsultasi nutrisi',
-                    'Meal planning'
+                    'Lebih hemat 2 bulan',
+                    'Akses premium selama 1 tahun',
+                    'Priority support',
+                    'Akses fitur baru lebih dulu'
                 ],
-                'best_value' => true
+                'best_value' => true,
+                'badge' => 'TERPOPULER'
             ],
             'lifetime' => [
                 'name' => 'Seumur Hidup',
-                'price' => 1999000,
+                'price' => 999000,
                 'period' => 'Seumur hidup',
                 'features' => [
                     'Semua fitur tahunan',
-                    'Akses seumur hidup',
-                    'Diskon partner 20%',
-                    'Personal concierge',
-                    'Event eksklusif'
+                    'Akses premium selamanya',
+                    'Priority support selamanya',
+                    'Akses fitur baru lebih dulu',
+                    'Badge user eksklusif'
                 ],
-                'best_value' => false
+                'best_value' => false,
+                'badge' => 'BEST DEAL'
             ]
         ];
 
@@ -84,15 +86,31 @@ class MembershipController extends Controller
 
         $user = Auth::user();
 
-        // =============================
+        // ✅ Kalau masih premium aktif (kecuali lifetime), gak boleh beli lagi
+        if ($user->isPremiumActive() && $request->type !== 'lifetime') {
+            return back()->with('error', 'Anda masih memiliki membership premium aktif!');
+        }
+
+        $prices = [
+            'monthly' => 30000,
+            'yearly' => 300000,
+            'lifetime' => 999000
+        ];
+
+        $price   = $prices[$request->type];
+        $orderId = 'MB-' . time() . '-' . $user->id;
+
+        // =================================================
         // 🔥 MODE SIMULASI (TANPA MIDTRANS)
-        // =============================
-        if (env('PAYMENT_MODE') === 'mock') {
+        // =================================================
+        // Kalau kamu mau langsung sukses tanpa daftar Midtrans:
+        // set di .env: PAYMENT_MODE=mock
+        if (env('PAYMENT_MODE', 'mock') === 'mock') {
 
             $membership = Membership::create([
                 'user_id' => $user->id,
                 'type' => $request->type,
-                'price' => 0,
+                'price' => $price,
                 'status' => 'active',
                 'payment_status' => 'paid',
                 'order_id' => 'MOCK-' . time() . '-' . $user->id,
@@ -101,7 +119,7 @@ class MembershipController extends Controller
                 'end_date' => $this->calculateEndDate($request->type),
             ]);
 
-            // Update status premium user
+            // Update user jadi premium
             $user->update([
                 'is_premium' => true,
                 'premium_type' => $request->type,
@@ -113,24 +131,11 @@ class MembershipController extends Controller
                 ->with('success', 'Upgrade Premium berhasil (mode simulasi)');
         }
 
-        // ==================================================
-        // ⬇️ KODE MIDTRANS ASLI (BELUM DIPAKAI SEKARANG)
-        // ==================================================
+        // =================================================
+        // ✅ MODE MIDTRANS (BENERAN)
+        // =================================================
 
-        // Cek jika sudah premium
-        if ($user->isPremium() && $request->type !== 'lifetime') {
-            return back()->with('error', 'Anda sudah memiliki membership aktif!');
-        }
-
-        $prices = [
-            'monthly' => 49000,
-            'yearly' => 490000,
-            'lifetime' => 1999000
-        ];
-
-        $price = $prices[$request->type];
-        $orderId = 'MB-' . time() . '-' . $user->id;
-
+        // ✅ bikin membership pending dulu
         $membership = Membership::create([
             'user_id' => $user->id,
             'type' => $request->type,
@@ -141,6 +146,7 @@ class MembershipController extends Controller
             'features' => $this->getFeatures($request->type)
         ]);
 
+        // Midtrans params
         $params = [
             'transaction_details' => [
                 'order_id' => $orderId,
@@ -165,7 +171,7 @@ class MembershipController extends Controller
             $snapToken = Snap::getSnapToken($params);
             return view('membership.payment', compact('snapToken', 'membership'));
         } catch (\Exception $e) {
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan Midtrans: ' . $e->getMessage());
         }
     }
 
@@ -196,44 +202,73 @@ class MembershipController extends Controller
     // =============================
     private function calculateEndDate($type)
     {
-        switch ($type) {
-            case 'monthly':
-                return now()->addMonth();
-            case 'yearly':
-                return now()->addYear();
-            case 'lifetime':
-                return now()->addYears(100);
-            default:
-                return now()->addMonth();
-        }
+        return match ($type) {
+            'monthly' => now()->addMonth(),
+            'yearly' => now()->addYear(),
+            'lifetime' => now()->addYears(100),
+            default => now()->addMonth()
+        };
     }
 
     private function getFeatures($type)
     {
         $features = [
             'monthly' => [
-                'Akses rekomendasi premium',
-                'Detail restoran lengkap',
-                'Resep eksklusif',
-                'Priority support',
-                'Diskon partner 10%'
+                'Unlimited rekomendasi per hari',
+                'Akses resep eksklusif premium',
+                'History rekomendasi tanpa batas',
+                'Favorit lebih banyak',
+                'Tanpa iklan'
             ],
             'yearly' => [
                 'Semua fitur bulanan',
-                'Gratis 2 bulan',
-                'Diskon partner 15%',
-                'Konsultasi nutrisi',
-                'Meal planning'
+                'Lebih hemat 2 bulan',
+                'Akses premium selama 1 tahun',
+                'Priority support',
+                'Akses fitur baru lebih dulu'
             ],
             'lifetime' => [
                 'Semua fitur tahunan',
-                'Akses seumur hidup',
-                'Diskon partner 20%',
-                'Personal concierge',
-                'Event eksklusif'
+                'Akses premium selamanya',
+                'Priority support selamanya',
+                'Akses fitur baru lebih dulu',
+                'Badge user eksklusif'
             ]
         ];
 
         return $features[$type] ?? [];
     }
+
+    public function finish(Request $request)
+    {
+    $user = Auth::user();
+
+    // ini membership terakhir yang statusnya pending
+    $membership = Membership::where('user_id', $user->id)
+        ->where('status', 'pending')
+        ->latest()
+        ->first();
+
+    if (!$membership) {
+        return redirect()->route('membership.index')->with('error', 'Membership pending tidak ditemukan.');
+    }
+
+    // ✅ update membership jadi aktif
+    $membership->update([
+        'status' => 'active',
+        'payment_status' => 'paid',
+        'start_date' => now(),
+        'end_date' => $this->calculateEndDate($membership->type),
+    ]);
+
+    // ✅ update user jadi premium
+    $user->update([
+        'is_premium' => true,
+        'premium_type' => $membership->type,
+        'premium_until' => $membership->end_date,
+    ]);
+
+    return redirect()->route('membership.success')->with('success', 'Upgrade Premium berhasil 🎉');
+    }
+
 }

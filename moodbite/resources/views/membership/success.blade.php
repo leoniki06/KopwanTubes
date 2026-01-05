@@ -1,88 +1,281 @@
 @extends('layouts.app')
 
-@section('title', 'Pembayaran Berhasil - MoodBite')
+@section('title', 'Premium Aktif - MoodBite')
 
 @section('content')
-<div class="row justify-content-center">
-    <div class="col-lg-6">
-        <div class="card text-center">
-            <div class="card-body py-5">
-                <!-- Success Icon -->
-                <div class="success-icon mb-4">
-                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center" 
-                         style="width: 100px; height: 100px; background: linear-gradient(135deg, #98FF98, #B5EAD7);">
-                        <i class="fas fa-check fa-3x text-white"></i>
-                    </div>
+@php
+    $membership = $currentMembership ?? null;
+@endphp
+
+<div class="container py-5">
+
+    {{-- ALERT SUCCESS --}}
+    @if(session('success'))
+        <div class="alert alert-success rounded-4 shadow-sm border-0 d-flex justify-content-between align-items-center px-4 py-3 mb-4">
+            <div>
+                <i class="fas fa-check-circle me-2"></i> {{ session('success') }}
+            </div>
+            <button class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+
+    {{-- SUCCESS CARD --}}
+    <div class="success-wrap mx-auto">
+        <div class="success-card shadow-sm rounded-4 overflow-hidden">
+
+            {{-- TOP HERO --}}
+            <div class="success-hero text-center p-5">
+                <div class="check-icon mx-auto mb-4">
+                    <i class="fas fa-check"></i>
                 </div>
-                
-                <!-- Success Message -->
-                <h2 style="color: #FF6B8B;">Pembayaran Berhasil!</h2>
-                <p class="lead mb-4">Selamat, Anda sekarang adalah member premium MoodBite!</p>
-                
-                <!-- Membership Details -->
-                <div class="card mb-4" style="border: 2px solid #FFE6E6;">
-                    <div class="card-body">
-                        <h5 class="mb-3">Detail Membership</h5>
-                        <div class="row text-start">
-                            <div class="col-6 mb-2">
-                                <strong>Paket:</strong>
+
+                <h2 class="fw-bold text-white mb-2">Pembayaran Berhasil! 🎉</h2>
+                <p class="text-white-50 mb-0">
+                    Selamat {{ Auth::user()->name }}, kamu sekarang adalah <b>Premium Member MoodBite</b>.
+                </p>
+
+                <div class="premium-pill mt-4">
+                    <i class="fas fa-crown me-2"></i> PREMIUM MEMBER
+                </div>
+            </div>
+
+
+            {{-- DETAIL SECTION --}}
+            <div class="p-4 p-md-5">
+
+                <div class="detail-box p-4 rounded-4 mb-4">
+                    <h5 class="fw-bold text-pink mb-3">
+                        <i class="fas fa-receipt me-2"></i>Detail Membership
+                    </h5>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="detail-item">
+                                <span class="detail-label">Paket</span>
+                                <span class="detail-value">{{ ucfirst($membership->type ?? '-') }}</span>
                             </div>
-                            <div class="col-6 mb-2">
-                                {{ ucfirst($currentMembership->type) }}
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="detail-item">
+                                <span class="detail-label">Berlaku Sampai</span>
+                                <span class="detail-value">
+                                    {{ $membership && $membership->end_date ? \Carbon\Carbon::parse($membership->end_date)->format('d F Y') : '-' }}
+                                </span>
                             </div>
-                            
-                            <div class="col-6 mb-2">
-                                <strong>Berlaku Sampai:</strong>
-                            </div>
-                            <div class="col-6 mb-2">
-                                {{ $currentMembership->end_date->format('d F Y') }}
-                            </div>
-                            
-                            <div class="col-6 mb-2">
-                                <strong>Order ID:</strong>
-                            </div>
-                            <div class="col-6 mb-2">
-                                {{ $currentMembership->order_id }}
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="detail-item">
+                                <span class="detail-label">Order ID</span>
+                                <span class="detail-value">{{ $membership->order_id ?? '-' }}</span>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Premium Badge -->
-                <div class="mb-4">
-                    <span class="badge" style="background: linear-gradient(135deg, #FFD700, #FFA500); 
-                         color: #333; padding: 10px 20px; font-size: 1.1rem;">
-                        <i class="fas fa-crown me-2"></i>MEMBER PREMIUM
-                    </span>
+
+
+                {{-- BENEFITS --}}
+                <div class="benefit-box p-4 rounded-4 mb-4">
+                    <h5 class="fw-bold text-pink mb-3">
+                        <i class="fas fa-gift me-2"></i>Benefit Premium Kamu
+                    </h5>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="benefit-item">
+                                <i class="fas fa-book-open"></i>
+                                <div>
+                                    <div class="fw-bold">Resep Eksklusif</div>
+                                    <div class="small text-muted">Akses resep premium dari chef ternama</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="benefit-item">
+                                <i class="fas fa-bolt"></i>
+                                <div>
+                                    <div class="fw-bold">Unlimited Recommendation</div>
+                                    <div class="small text-muted">Cari rekomendasi makanan tanpa batas</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="benefit-item">
+                                <i class="fas fa-star"></i>
+                                <div>
+                                    <div class="fw-bold">Detail Rekomendasi</div>
+                                    <div class="small text-muted">Lebih lengkap: deskripsi & opsi lebih banyak</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="benefit-item">
+                                <i class="fas fa-heart"></i>
+                                <div>
+                                    <div class="fw-bold">History & Favorit</div>
+                                    <div class="small text-muted">Simpan favorit & riwayat tanpa batas</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <!-- Action Buttons -->
-                <div class="d-grid gap-2 d-md-block">
-                    <a href="{{ route('recommendations') }}" class="btn btn-primary">
-                        <i class="fas fa-search me-2"></i>Cari Rekomendasi Premium
+
+
+                {{-- CTA BUTTONS --}}
+                <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+                    <a href="{{ route('premium.recipes.index') }}" class="btn btn-premium px-4 py-3 rounded-4 fw-bold">
+                        <i class="fas fa-crown me-2"></i>Mulai Lihat Resep Premium
                     </a>
-                    <a href="{{ route('dashboard') }}" class="btn btn-outline-primary ms-md-2 mt-2 mt-md-0">
-                        <i class="fas fa-home me-2"></i>Kembali ke Dashboard
+
+                    <a href="{{ route('dashboard') }}" class="btn btn-outline-premium px-4 py-3 rounded-4 fw-bold">
+                        <i class="fas fa-arrow-left me-2"></i>Kembali ke Dashboard
                     </a>
                 </div>
-                
-                <!-- Features Reminder -->
-                <div class="mt-4 text-muted small">
-                    <p>Nikmati fitur premium Anda mulai sekarang:</p>
-                    <ul class="list-inline mb-0">
-                        <li class="list-inline-item">
-                            <i class="fas fa-star me-1"></i>Rekomendasi Premium
-                        </li>
-                        <li class="list-inline-item">
-                            <i class="fas fa-map-marked-alt me-1"></i>Detail Lengkap
-                        </li>
-                        <li class="list-inline-item">
-                            <i class="fas fa-utensils me-1"></i>Resep Eksklusif
-                        </li>
-                    </ul>
-                </div>
+
             </div>
         </div>
     </div>
+
 </div>
+
+
+<style>
+:root{
+    --pink:#FF6B8B;
+    --pink2:#C8A2C8;
+    --pink-soft:#FFF0F5;
+}
+
+.text-pink{ color: var(--pink) !important; }
+
+/* WRAPPER */
+.success-wrap{
+    max-width: 900px;
+}
+
+/* CARD */
+.success-card{
+    background: #fff;
+    border: 1px solid rgba(255,107,139,.15);
+}
+
+/* HERO */
+.success-hero{
+    background: linear-gradient(135deg, rgba(255,107,139,.96), rgba(200,162,200,.96));
+    position: relative;
+}
+.success-hero:after{
+    content:"";
+    position:absolute;
+    left:0; right:0; bottom:-1px;
+    height:40px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1));
+}
+
+/* CHECK ICON */
+.check-icon{
+    width: 90px;
+    height: 90px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.18);
+    border: 1px solid rgba(255,255,255,.25);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 40px;
+    color:#fff;
+    animation: pop .6s ease;
+}
+@keyframes pop{
+    0%{ transform: scale(.7); opacity:.2; }
+    100%{ transform: scale(1); opacity:1; }
+}
+
+/* PREMIUM PILL */
+.premium-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.18);
+    border: 1px solid rgba(255,255,255,.28);
+    font-weight: 900;
+    color:#fff;
+}
+
+/* DETAIL BOX */
+.detail-box{
+    background: rgba(255,107,139,.06);
+    border: 1px solid rgba(255,107,139,.15);
+}
+.detail-item{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    padding: 12px;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,.06);
+}
+.detail-label{
+    font-size: 12px;
+    font-weight: 800;
+    color: rgba(0,0,0,.45);
+}
+.detail-value{
+    font-size: 14px;
+    font-weight: 900;
+}
+
+/* BENEFITS */
+.benefit-box{
+    background: rgba(255,255,255,.85);
+    border: 1px solid rgba(0,0,0,.08);
+}
+.benefit-item{
+    display:flex;
+    gap: 14px;
+    align-items:flex-start;
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(255,107,139,.05);
+    border: 1px solid rgba(255,107,139,.12);
+}
+.benefit-item i{
+    font-size: 22px;
+    color: var(--pink);
+    margin-top: 3px;
+}
+
+/* CTA BUTTONS */
+.btn-premium{
+    background: linear-gradient(135deg, var(--pink), var(--pink2));
+    border: none;
+    color: #fff;
+    transition: .25s ease;
+}
+.btn-premium:hover{
+    filter: brightness(.95);
+    transform: translateY(-2px);
+    box-shadow: 0 16px 35px rgba(255,107,139,.22);
+    color:#fff;
+}
+
+.btn-outline-premium{
+    border: 2px solid rgba(255,107,139,.35);
+    background: transparent;
+    color: var(--pink);
+    transition: .25s ease;
+}
+.btn-outline-premium:hover{
+    background: rgba(255,107,139,.08);
+    transform: translateY(-2px);
+}
+</style>
 @endsection

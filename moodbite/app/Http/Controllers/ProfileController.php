@@ -21,7 +21,38 @@ class ProfileController extends Controller
             ->take(6)
             ->get();
 
-        return view('profile.show', compact('user', 'recommendationHistory'));
+        $allHistory = RecommendationHistory::where('user_id', $user->id)
+            ->latest()
+            ->get();
+
+        $totalSearch = $allHistory->count();
+
+        $lastMood = $allHistory->first()?->mood;
+
+        $topMood = null;
+        if ($totalSearch > 0) {
+            $topMood = $allHistory->groupBy('mood')
+                ->map(fn ($items) => $items->count())
+                ->sortDesc()
+                ->keys()
+                ->first();
+        }
+
+        $uniqueMoods = $allHistory->pluck('mood')->unique()->values();
+
+        $premiumExtraMoods = collect(['anxious', 'lazy', 'rainy', 'focus', 'sleepy', 'party']);
+
+        $premiumTried = $uniqueMoods->intersect($premiumExtraMoods)->values();
+
+        $insights = [
+            'totalSearch' => $totalSearch,
+            'lastMood' => $lastMood,
+            'topMood' => $topMood,
+            'uniqueCount' => $uniqueMoods->count(),
+            'premiumTried' => $premiumTried,
+        ];
+
+        return view('profile.show', compact('user', 'recommendationHistory', 'insights'));
     }
 
     public function edit()
@@ -68,17 +99,6 @@ class ProfileController extends Controller
         $user->save();
 
         return redirect()->route('profile.show')->with('success', 'Profil berhasil diperbarui!');
-    }
-
-    public function updatePreferences(Request $request)
-    {
-        $user = Auth::user();
-
-        $preferences = $request->input('preferences', []);
-        $user->food_preferences = $preferences;
-        $user->save();
-
-        return back()->with('success', 'Preferensi makanan berhasil diperbarui!');
     }
 
     public function favorites()
