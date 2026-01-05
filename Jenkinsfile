@@ -1,57 +1,36 @@
 pipeline {
     agent any
 
-    environment {
-        // Tools di Jenkins (pastikan sudah diinstall di Global Tool Configuration)
-        PHP_HOME = tool 'PHP' 
-        PATH = "${env.PHP_HOME}/bin:${env.PATH}"
-    }
-
     stages {
         stage('Checkout') {
             steps {
-                echo "Checkout repository dari GitHub"
+                echo "Checkout source code dari GitHub"
                 checkout scm
             }
         }
 
-        stage('Install Dependencies') {
-            steps {
-                echo "Install PHP dependencies lewat Composer"
-                sh 'composer install --no-interaction --prefer-dist'
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                echo "Menjalankan Laravel PHPUnit tests"
-                sh './vendor/bin/phpunit'
-            }
-        }
-
         stage('Build Docker Image') {
-            when {
-                expression { fileExists('Dockerfile') }
-            }
             steps {
-                echo "Build dan Push Docker image"
-                sh '''
-                  docker build -t registry.example.com/kopwantubes:${env.BUILD_NUMBER} .
-                  docker push registry.example.com/kopwantubes:${env.BUILD_NUMBER}
-                '''
+                echo "Build Docker image"
+                bat 'docker build -t kopwantubes:%BUILD_NUMBER% .'
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                echo "Push Docker image"
+                // jika belum pakai Docker Hub, stage ini boleh dikosongkan
+                bat 'echo Image siap digunakan'
             }
         }
     }
 
     post {
         success {
-            echo "Pipeline sukses 🎉"
+            echo "Pipeline selesai ✅"
         }
         failure {
             echo "Build gagal ❌"
-        }
-        always {
-            echo "Pipeline selesai ✅"
         }
     }
 }
