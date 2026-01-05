@@ -1,44 +1,38 @@
 pipeline {
   agent any
-  options { timestamps() }
+
+  options {
+    timestamps()
+    skipDefaultCheckout(true)
+  }
 
   environment {
-    DOCKERHUB_USER = "allysa20"
-    IMAGE_NAME     = "kopwan-tubes"
-    IMAGE_TAG      = "${BUILD_NUMBER}"
-
-    BUILD_FOLDER   = "moodbite"
+    DOCKERHUB_USER   = "allysa20"
+    IMAGE_NAME       = "kopwan-tubes"
+    CREDS_ID         = "dockerhub-credentials"
+    TAG              = "${BUILD_NUMBER}"
   }
 
   stages {
-
     stage('Checkout') {
-      steps { checkout scm }
-    }
-
-    stage('Force Docker default context') {
       steps {
-        bat """
-          @echo on
-          docker context ls
-          docker context use default || echo "default already"
-          docker version
-        """
+        retry(3) {
+          checkout([
+            $class: 'GitSCM',
+            branches: [[name: '*/main']],
+            userRemoteConfigs: [[url: 'https://github.com/leoniki06/KopwanTubes.git']],
+            extensions: [[$class: 'CloneOption', shallow: true, depth: 1, timeout: 30]]
+          ])
+        }
       }
     }
 
-    stage('Verify Project Structure') {
+    stage('Docker Ready') {
       steps {
         bat """
           @echo on
-          echo === Root ===
-          dir
-
-          echo === moodbite ===
-          dir %BUILD_FOLDER%
-
-          echo === Check Dockerfile ===
-          dir %BUILD_FOLDER%\\Dockerfile
+          docker context use default || echo "already default"
+          docker version
         """
       }
     }
@@ -47,22 +41,25 @@ pipeline {
       steps {
         bat """
           @echo on
-          if not exist %BUILD_FOLDER%\\Dockerfile (
-            echo ERROR: %BUILD_FOLDER%\\Dockerfile NOT FOUND
+          echo === root ===
+          dir
+          echo === moodbite ===
+          dir moodbite
+
+          if not exist Dockerfile (
+            echo ERROR: Dockerfile tidak ada di root
             exit /b 1
           )
 
-          cd %BUILD_FOLDER%
-          docker build --no-cache -f Dockerfile -t %IMAGE_NAME%:%IMAGE_TAG% .
-          docker tag %IMAGE_NAME%:%IMAGE_TAG% %IMAGE_NAME%:latest
+          docker build --no-cache -f Dockerfile -t %IMAGE_NAME%:%TAG% -t %IMAGE_NAME%:latest .
         """
       }
     }
 
-    stage('Login & Push Docker Hub') {
+    stage('Push Docker Hub') {
       steps {
         withCredentials([usernamePassword(
-          credentialsId: 'dockerhub-creds',
+          credentialsId: "${CREDS_ID}",
           usernameVariable: 'DH_USER',
           passwordVariable: 'DH_TOKEN'
         )]) {
@@ -70,11 +67,13 @@ pipeline {
             @echo on
             echo %DH_TOKEN% | docker login -u %DH_USER% --password-stdin
 
-            docker tag %IMAGE_NAME%:%IMAGE_TAG% %DOCKERHUB_USER%/%IMAGE_NAME%:%IMAGE_TAG%
+            docker tag %IMAGE_NAME%:%TAG% %DOCKERHUB_USER%/%IMAGE_NAME%:%TAG%
             docker tag %IMAGE_NAME%:latest %DOCKERHUB_USER%/%IMAGE_NAME%:latest
 
-            docker push %DOCKERHUB_USER%/%IMAGE_NAME%:%IMAGE_TAG%
+            docker push %DOCKERHUB_USER%/%IMAGE_NAME%:%TAG%
             docker push %DOCKERHUB_USER%/%IMAGE_NAME%:latest
+
+            docker logout
           """
         }
       }
@@ -83,12 +82,10 @@ pipeline {
 
   post {
     always {
-      bat """
-        @echo on
-        docker images
-        docker logout
-      """
-      cleanWs()
+      script {
+        try { bat "docker images" } catch (e) { echo "skip: ${e}" }
+        try { cleanWs() } catch (e) { echo "skip: ${e}" }
+      }
     }
   }
 }
