@@ -4,33 +4,25 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo "Checkout source code dari GitHub"
+                echo 'Checkout repository dari GitHub'
                 checkout scm
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Verify Workspace') {
             steps {
-                echo "Build Docker image"
-                bat 'docker build -t kopwantubes:%BUILD_NUMBER% .'
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                echo "Push Docker image"
-                // jika belum pakai Docker Hub, stage ini boleh dikosongkan
-                bat 'echo Image siap digunakan'
+                echo 'Menampilkan isi workspace'
+                bat 'dir'
             }
         }
     }
 
     post {
         success {
-            echo "Pipeline selesai ✅"
+            echo 'Jenkinsfile berhasil dijalankan ✅'
         }
         failure {
-            echo "Build gagal ❌"
+            echo 'Jenkinsfile gagal ❌'
         }
     }
 }
