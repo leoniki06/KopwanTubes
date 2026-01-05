@@ -1,44 +1,43 @@
 pipeline {
   agent any
-  options { timestamps() }
+
+  options {
+    timestamps()
+    skipDefaultCheckout(true)   // <-- penting! matikan checkout SCM bawaan Jenkins
+  }
 
   environment {
-    DOCKERHUB_USER = "ISI_USERNAME_DOCKERHUB"
-    IMAGE_NAME     = "kopwan-tubes"
-    IMAGE_TAG      = "${BUILD_NUMBER}"
-
-    BUILD_FOLDER   = "moodbite"
+    DOCKERHUB_USER     = "allysa20"
+    IMAGE_NAME         = "kopwan-tubes"
+    DOCKER_CREDENTIALS = "dockerhub-credentials"
+    IMAGE_TAG          = "${BUILD_NUMBER}"
+    BUILD_FOLDER       = "moodbite"
   }
 
   stages {
 
     stage('Checkout') {
-      steps { checkout scm }
-    }
-
-    stage('Force Docker default context') {
       steps {
-        bat """
-          @echo on
-          docker context ls
-          docker context use default || echo "default already"
-          docker version
-        """
+        retry(3) {   // <-- kalau koneksi putus, coba lagi otomatis
+          checkout([
+            $class: 'GitSCM',
+            branches: [[name: '*/main']],
+            userRemoteConfigs: [[url: 'https://github.com/leoniki06/KopwanTubes.git']],
+            extensions: [
+              [$class: 'CloneOption', shallow: true, depth: 1, noTags: false, timeout: 30],
+              [$class: 'CheckoutOption', timeout: 30]
+            ]
+          ])
+        }
       }
     }
 
-    stage('Verify Project Structure') {
+    stage('Docker OK?') {
       steps {
         bat """
           @echo on
-          echo === Root ===
-          dir
-
-          echo === moodbite ===
-          dir %BUILD_FOLDER%
-
-          echo === Check Dockerfile ===
-          dir %BUILD_FOLDER%\\Dockerfile
+          docker context use default
+          docker version
         """
       }
     }
@@ -49,6 +48,7 @@ pipeline {
           @echo on
           if not exist %BUILD_FOLDER%\\Dockerfile (
             echo ERROR: %BUILD_FOLDER%\\Dockerfile NOT FOUND
+            dir %BUILD_FOLDER%
             exit /b 1
           )
 
@@ -59,7 +59,7 @@ pipeline {
       }
     }
 
-    stage('Login & Push Docker Hub') {
+    stage('Push Docker Hub') {
       steps {
         withCredentials([usernamePassword(
           credentialsId: 'dockerhub-creds',
@@ -83,12 +83,12 @@ pipeline {
 
   post {
     always {
-      bat """
-        @echo on
-        docker images
-        docker logout
-      """
-      cleanWs()
+      script {
+        // Jangan bikin pipeline error gara-gara post action
+        try { bat "docker images" } catch (e) { echo "Skip docker images: ${e}" }
+        try { bat "docker logout" } catch (e) { echo "Skip docker logout: ${e}" }
+        try { cleanWs() } catch (e) { echo "Skip cleanWs: ${e}" }
+      }
     }
   }
 }
