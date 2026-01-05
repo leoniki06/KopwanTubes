@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# --- System deps (umum untuk Laravel + DB + zip + gd) ---
+# System deps
 RUN apt-get update && apt-get install -y \
     git curl unzip zip \
     libpng-dev \
@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
  && rm -rf /var/lib/apt/lists/*
 
-# --- PHP extensions ---
+# PHP extensions
 RUN docker-php-ext-configure zip \
  && docker-php-ext-install \
     pdo_mysql \
@@ -22,22 +22,27 @@ RUN docker-php-ext-configure zip \
     gd \
     zip
 
-# --- Apache: set document root ke /public + enable rewrite ---
+# Apache public directory (Laravel)
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
  && sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf \
  && a2enmod rewrite
 
-# --- Composer ---
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
 WORKDIR /var/www/html
 
-# Cache layer: copy composer file dulu
-COPY composer.json composer.lock* ./
+# ==========
+# IMPORTANT:
+# App kamu ada di folder moodbite/
+# ==========
 
-# Install dependencies (lebih stabil di CI kalau no-scripts)
+# Copy composer files dari moodbite untuk cache layer
+COPY moodbite/composer.json moodbite/composer.lock* ./
+
+# Install dependencies (lebih aman untuk CI)
 RUN composer install \
     --no-interaction \
     --no-dev \
@@ -45,14 +50,15 @@ RUN composer install \
     --optimize-autoloader \
     --no-scripts
 
-# Copy source code
-COPY . .
+# Copy seluruh source Laravel dari moodbite ke workdir
+COPY moodbite/ ./
 
-# (Opsional) entrypoint untuk artisan setup ringan
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+# Kalau kamu punya entrypoint, taruh juga di moodbite/ (atau bikin di root)
+# Jika file ini belum ada, HAPUS 2 baris di bawah supaya build tidak gagal.
+COPY moodbite/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Laravel permissions
+# Permissions Laravel
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
  && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
