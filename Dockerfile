@@ -1,27 +1,56 @@
-# Base image PHP + Apache
-FROM php:8.1-apache
+# 1) Gunakan Image PHP 8.2 dengan Apache
+FROM php:8.2-apache
 
-# Install dependency sistem & ekstensi PHP yang umum dipakai Laravel
+# 2) Install library system (termasuk libpq-dev untuk Postgres)
 RUN apt-get update && apt-get install -y \
-    git \
-    unzip \
-    libzip-dev \
     libpng-dev \
     libonig-dev \
-    && docker-php-ext-install pdo_mysql mbstring zip
+    libxml2-dev \
+    libpq-dev \
+    zip \
+    unzip \
+    git \
+    curl \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
 
-# Set document root
+# 3) Install ekstensi PHP (MySQL + Postgres + kebutuhan Laravel)
+RUN docker-php-ext-install \
+    pdo_mysql \
+    pdo_pgsql \
+    pgsql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd
+
+# 4) Konfigurasi Apache Document Root ke folder "public"
+ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
+ && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+
+# 5) Aktifkan mod rewrite (Laravel routing)
+RUN a2enmod rewrite
+
+# 6) Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# 7) Set folder kerja
 WORKDIR /var/www/html
 
-# Copy seluruh source code ke container
+# 8) Copy source code project
 COPY . .
 
-# Permission agar Apache bisa akses file
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html
+# 9) Install vendor (production)
+RUN composer install --no-interaction --no-dev --optimize-autoloader
 
-# Expose port Apache
+# 10) Permission storage & cache (Laravel)
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+ && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# 11) Expose port 80
 EXPOSE 80
 
-# Jalankan Apache
+# 12) Jalankan Apache
 CMD ["apache2-foreground"]
