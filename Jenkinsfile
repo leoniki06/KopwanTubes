@@ -1,55 +1,44 @@
 pipeline {
   agent any
-
-  options {
-    timestamps()
-    skipDefaultCheckout(true)   // supaya checkout kita kontrol sendiri (lebih stabil)
-  }
+  options { timestamps() }
 
   environment {
-    // GANTI username docker hub kamu
-    DOCKERHUB_NAMESPACE = 'allysa20'         // contoh, sesuaikan
-    APP_IMAGE           = 'kopwan-tubes'
-    APP_DIR             = 'moodbite'         // folder laravel di repo kamu
-    DOCKERFILE_REL      = 'Dockerfile'       // Dockerfile ada di moodbite/Dockerfile
-    DOCKER_CREDS_ID     = 'dockerhub-credentials' // ID credentials di Jenkins
-    BUILD_TAG_NUM       = "${BUILD_NUMBER}"
+    DOCKERHUB_USER = "ISI_USERNAME_DOCKERHUB"
+    IMAGE_NAME     = "kopwan-tubes"
+    IMAGE_TAG      = "${BUILD_NUMBER}"
+
+    BUILD_FOLDER   = "moodbite"
   }
 
   stages {
 
-    stage('Source') {
-      steps {
-        // retry untuk mengatasi error "connection reset / early EOF"
-        retry(3) {
-          checkout([
-            $class: 'GitSCM',
-            branches: [[name: '*/main']],
-            userRemoteConfigs: [[url: 'https://github.com/leoniki06/KopwanTubes.git']],
-            extensions: [
-              [$class: 'CloneOption', shallow: true, depth: 1, timeout: 30],
-              [$class: 'CheckoutOption', timeout: 30]
-            ]
-          ])
-        }
-      }
+    stage('Checkout') {
+      steps { checkout scm }
     }
 
-    stage('Preflight') {
+    stage('Force Docker default context') {
       steps {
         bat """
           @echo on
-          echo === Repo root ===
+          docker context ls
+          docker context use default || echo "default already"
+          docker version
+        """
+      }
+    }
+
+    stage('Verify Project Structure') {
+      steps {
+        bat """
+          @echo on
+          echo === Root ===
           dir
 
-          echo === App dir (%APP_DIR%) ===
-          dir %APP_DIR%
+          echo === moodbite ===
+          dir %BUILD_FOLDER%
 
-          echo === Ensure Docker default context ===
-          docker context use default || echo "already default"
-
-          echo === Docker version ===
-          docker version
+          echo === Check Dockerfile ===
+          dir %BUILD_FOLDER%\\Dockerfile
         """
       }
     }
@@ -58,29 +47,22 @@ pipeline {
       steps {
         bat """
           @echo on
-          if not exist %APP_DIR%\\%DOCKERFILE_REL% (
-            echo ERROR: Dockerfile not found at %APP_DIR%\\%DOCKERFILE_REL%
+          if not exist %BUILD_FOLDER%\\Dockerfile (
+            echo ERROR: %BUILD_FOLDER%\\Dockerfile NOT FOUND
             exit /b 1
           )
 
-          echo === Build image from %APP_DIR% ===
-          cd %APP_DIR%
-
-          docker build --pull --no-cache ^
-            -f %DOCKERFILE_REL% ^
-            -t %APP_IMAGE%:%BUILD_TAG_NUM% ^
-            -t %APP_IMAGE%:latest ^
-            .
-
-          cd ..
+          cd %BUILD_FOLDER%
+          docker build --no-cache -f Dockerfile -t %IMAGE_NAME%:%IMAGE_TAG% .
+          docker tag %IMAGE_NAME%:%IMAGE_TAG% %IMAGE_NAME%:latest
         """
       }
     }
 
-    stage('Publish') {
+    stage('Login & Push Docker Hub') {
       steps {
         withCredentials([usernamePassword(
-          credentialsId: "${DOCKER_CREDS_ID}",
+          credentialsId: 'dockerhub-creds',
           usernameVariable: 'DH_USER',
           passwordVariable: 'DH_TOKEN'
         )]) {
@@ -88,35 +70,25 @@ pipeline {
             @echo on
             echo %DH_TOKEN% | docker login -u %DH_USER% --password-stdin
 
-            echo === Retag for Docker Hub namespace ===
-            docker tag %APP_IMAGE%:%BUILD_TAG_NUM% %DOCKERHUB_NAMESPACE%/%APP_IMAGE%:%BUILD_TAG_NUM%
-            docker tag %APP_IMAGE%:latest %DOCKERHUB_NAMESPACE%/%APP_IMAGE%:latest
+            docker tag %IMAGE_NAME%:%IMAGE_TAG% %DOCKERHUB_USER%/%IMAGE_NAME%:%IMAGE_TAG%
+            docker tag %IMAGE_NAME%:latest %DOCKERHUB_USER%/%IMAGE_NAME%:latest
 
-            echo === Push ===
-            docker push %DOCKERHUB_NAMESPACE%/%APP_IMAGE%:%BUILD_TAG_NUM%
-            docker push %DOCKERHUB_NAMESPACE%/%APP_IMAGE%:latest
-
-            docker logout
+            docker push %DOCKERHUB_USER%/%IMAGE_NAME%:%IMAGE_TAG%
+            docker push %DOCKERHUB_USER%/%IMAGE_NAME%:latest
           """
         }
-      }
-    }
-
-    stage('Result') {
-      steps {
-        echo "IMAGE: ${DOCKERHUB_NAMESPACE}/${APP_IMAGE}:${BUILD_TAG_NUM}"
-        echo "IMAGE: ${DOCKERHUB_NAMESPACE}/${APP_IMAGE}:latest"
       }
     }
   }
 
   post {
     always {
-      script {
-        // post dibuat aman supaya tidak error kalau checkout gagal
-        try { bat "docker images" } catch (e) { echo "Skip docker images: ${e}" }
-        try { cleanWs() } catch (e) { echo "Skip cleanWs: ${e}" }
-      }
+      bat """
+        @echo on
+        docker images
+        docker logout
+      """
+      cleanWs()
     }
   }
 }
