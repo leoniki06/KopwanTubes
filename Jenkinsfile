@@ -7,10 +7,10 @@ pipeline {
   }
 
   environment {
-    DOCKERHUB_USER   = "allysa20"
-    IMAGE_NAME       = "kopwan-tubes"
-    CREDS_ID         = "dockerhub-credentials"
-    TAG              = "${BUILD_NUMBER}"
+    DOCKERHUB_USER = "allysa20"              // GANTI dengan username Docker Hub kamu
+    IMAGE_NAME     = "kopwan-tubes"
+    CREDS_ID       = "dockerhub-credentials" // samakan dengan ID credentials di Jenkins
+    TAG            = "${BUILD_NUMBER}"
   }
 
   stages {
@@ -41,13 +41,9 @@ pipeline {
       steps {
         bat """
           @echo on
-          echo === root ===
-          dir
-          echo === moodbite ===
-          dir moodbite
-
           if not exist Dockerfile (
             echo ERROR: Dockerfile tidak ada di root
+            dir
             exit /b 1
           )
 
